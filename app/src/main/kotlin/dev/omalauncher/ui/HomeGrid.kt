@@ -753,7 +753,8 @@ private fun TiledPage(
                 }
             }
         }
-        if (items.none { it.key != carried }) {
+        // "drop here" stays even without the hint: it says where a carried tile can land.
+        if (items.none { it.key != carried } && (carried != null || LauncherStyle.emptyPageHint)) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 BasicText(
                     if (carried != null) "drop here" else "no widgets on this page · long-press for a new one",

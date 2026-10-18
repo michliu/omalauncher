@@ -113,6 +113,9 @@ object LauncherStyle {
     /** The strip of recently used apps above the bar on home. */
     val recentApps get() = style[Style.RECENT_APPS]
 
+    /** The note on a home page without widgets saying to long-press for one. */
+    val emptyPageHint get() = style[Style.EMPTY_PAGE_HINT]
+
     /** Forces one home page even on a screen [SideRail]'s auto-detect would otherwise split in two. */
     val forceSinglePage get() = style[Style.FORCE_SINGLE_PAGE]
 
