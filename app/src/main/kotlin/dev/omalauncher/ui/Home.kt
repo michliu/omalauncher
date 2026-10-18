@@ -356,6 +356,7 @@ fun HomeScreen(
             side = side,
             per = per,
             onLongPressEmpty = { openMenu(null) },
+            onDoubleTapEmpty = { runtime.gestures.perform(runtime.gestures.doubleTap, state, runtime) },
             onNoRoom = { item -> showPage = engine.moveToFreePage(item) },
             onMove = { item, page ->
                 engine.moveToPage(item, page)

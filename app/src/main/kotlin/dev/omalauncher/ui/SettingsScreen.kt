@@ -75,7 +75,7 @@ fun SettingsScreen(
         val rows =
             listOfNotNull(
                 Triple("style", runtime.themes.current?.title ?: "theme, background, home screen", onStyle),
-                Triple("gestures", "swipe up: ${runtime.gestures.swipeUp.label}", onGestures),
+                Triple("gestures", with(runtime.gestures) { "swipe up: ${swipeUp.label} · down: ${swipeDown.label} · double tap: ${doubleTap.label}" }, onGestures),
                 Triple("linux", linuxStatus, onLinux),
                 if (installed) {
                     Triple("coding agents", runtime.agents.default?.let { "default: ${it.name}" } ?: "install Claude Code, OpenCode, …", onAgents)

@@ -2,4 +2,5 @@
 <resources>
     <string name="wallpaper_label">Omarchy</string>
     <string name="wallpaper_description">The current Omarchy theme background. System colors follow the theme.</string>
+    <string name="lock_service_description">Locks the screen when the lock screen gesture is used on the home screen. Omalauncher reads nothing through this service.</string>
 </resources>

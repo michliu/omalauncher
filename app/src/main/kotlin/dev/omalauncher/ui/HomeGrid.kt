@@ -298,6 +298,8 @@ internal fun HomeGrid(
     render: @Composable (HomeItem, Modifier, Boolean) -> Unit,
     actions: @Composable (HomeItem) -> Unit,
     onLongPressEmpty: () -> Unit,
+    /** Two quick taps on empty space, for gesture settings' double tap. */
+    onDoubleTapEmpty: () -> Unit,
     onNoRoom: (HomeItem) -> Unit,
     onMove: (HomeItem, Int) -> Unit,
     onGroup: (Shortcut, HomeItem) -> Unit,
@@ -508,16 +510,30 @@ internal fun HomeGrid(
                         return moved
                     }
 
-                    /** Waits out a long press without taking the touch, so a tap still reaches the tile; false if it ended or moved first. */
+                    /** How a press ended, watched without taking the touch, so a tap still reaches the tile. */
+                    suspend fun AwaitPointerEventScope.awaitPress(
+                        downId: PointerId,
+                        start: Offset,
+                    ): Press =
+                        withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                            while (true) {
+                                val c = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == downId } ?: return@withTimeoutOrNull Press.Moved
+                                if (!c.pressed) return@withTimeoutOrNull Press.Tap
+                                if ((c.position - start).getDistance() > viewConfiguration.touchSlop) return@withTimeoutOrNull Press.Moved
+                            }
+                            @Suppress("UNREACHABLE_CODE")
+                            Press.Moved
+                        } ?: Press.Long
+
+                    /** Waits out a long press; false if it ended or moved first. */
                     suspend fun AwaitPointerEventScope.awaitLongPress(
                         downId: PointerId,
                         start: Offset,
-                    ) = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                        while (true) {
-                            val c = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == downId } ?: return@withTimeoutOrNull
-                            if (!c.pressed || (c.position - start).getDistance() > viewConfiguration.touchSlop) return@withTimeoutOrNull
-                        }
-                    } == null
+                    ) = awaitPress(downId, start) == Press.Long
+
+                    /** The last tap on empty space: a second one soon after and near it is a double tap. */
+                    var lastEmptyTap: Pair<Long, Offset>? = null
+                    val doubleTapSlop = 48.dp.toPx()
 
                     /** Takes [downId]'s moves until it lifts, giving [onMove] each position while pressed; where it lifted, or null if it went away. */
                     suspend fun AwaitPointerEventScope.trackUntilUp(
@@ -613,12 +629,27 @@ internal fun HomeGrid(
                         }
 
                         val hit = placed.lastOrNull { (_, c) -> g.rect(c).has(at) }
-                        if (!awaitLongPress(down.id, start)) return@awaitEachGesture
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         if (hit == null) {
-                            onLongPressEmpty()
+                            // Empty space: a long press opens the home menu, two quick taps run the double tap gesture.
+                            when (awaitPress(down.id, start)) {
+                                Press.Long -> {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onLongPressEmpty()
+                                }
+                                Press.Tap -> {
+                                    val last = lastEmptyTap
+                                    val twice =
+                                        last != null && down.uptimeMillis - last.first < viewConfiguration.doubleTapTimeoutMillis &&
+                                            (start - last.second).getDistance() < doubleTapSlop
+                                    lastEmptyTap = if (twice) null else SystemClock.uptimeMillis() to start
+                                    if (twice) onDoubleTapEmpty()
+                                }
+                                Press.Moved -> {}
+                            }
                             return@awaitEachGesture
                         }
+                        if (!awaitLongPress(down.id, start)) return@awaitEachGesture
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         // Lifted: select it, and let the same finger drag it without letting go.
                         onSelect(hit.first.key)
                         arrange.holding = true
@@ -707,6 +738,9 @@ private fun DropPreview(
             .frame(2.dp, Palette.accent, Palette.accent.copy(alpha = if (arrange.grouping) 0.35f else 0.12f)),
     )
 }
+
+/** How a press on the grid ended: lifted in place, dragged away, or held. */
+private enum class Press { Tap, Moved, Long }
 
 /** How long a carried tile rests against a side edge before the page turns. */
 private const val PAGE_TURN_MS = 600L
