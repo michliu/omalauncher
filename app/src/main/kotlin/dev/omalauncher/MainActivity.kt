@@ -121,6 +121,8 @@ class MainActivity : ComponentActivity() {
         state.closeScreens()
         runtime.widgets.openScreen = null
         state.editing = null
+        // The Home key while home shows: back to the first page, as stock launchers do.
+        if (intent.hasCategory(Intent.CATEGORY_HOME)) state.requestedPage = 0
         handleDebugExec(intent)
         handleSharedWidget(intent)
     }
