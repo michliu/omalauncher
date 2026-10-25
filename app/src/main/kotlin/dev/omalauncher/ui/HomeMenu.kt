@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.omalauncher.Runtime
@@ -77,10 +78,17 @@ fun HomeMenu(
                 BasicText("create with $agentName", style = Mono.copy(fontSize = TextSize.Item))
                 // Pulled left by the buttons' own padding, so the first bracket lines up with the label.
                 Row(Modifier.offset(x = (-8).dp)) {
-                    for ((kind, label) in listOf(OwlKind.Widget to "widget", OwlKind.App to "app")) {
+                    val kinds: List<Pair<String, (String) -> String>> =
+                        listOf(
+                            "widget" to { newOwlCommand(it, OwlKind.Widget) },
+                            // Faces are made from the empty page left of them, which says where the new one goes.
+                            "app" to { newOwlCommand(it, OwlKind.App) },
+                            "panel" to { newOwlCommand(it, OwlKind.Panel) },
+                        )
+                    for ((label, command) in kinds) {
                         BracketAction(label, Palette.accent) {
                             state.homeMenuOpen = false
-                            if (linux) state.withAgent(runtime, "New ${kind.word}") { newOwlCommand(it, kind) } else state.show(SettingsPage.Linux)
+                            if (linux) state.withAgent(runtime, "New $label", command) else state.show(SettingsPage.Linux)
                         }
                     }
                 }
@@ -117,6 +125,8 @@ private fun Menu(
         Modifier
             .fillMaxSize()
             .background(Palette.overlay)
+            // A tap on the scrim closes the menu; keys move between what's in it, not to the scrim.
+            .focusProperties { canFocus = false }
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
@@ -125,6 +135,7 @@ private fun Menu(
                 .widthIn(min = 240.dp, max = 360.dp)
                 .frame(2.dp, Palette.accent, Palette.background, radius = 20.dp)
                 .clickable(enabled = false) {}
+                .holdsKeys()
                 .padding(8.dp),
         ) { content() }
     }

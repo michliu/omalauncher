@@ -47,7 +47,6 @@ import dev.omalauncher.ui.KeyboardSink
 import dev.omalauncher.ui.Mono
 import dev.omalauncher.ui.Palette
 import dev.omalauncher.ui.linuxWindowInput
-import dev.omalauncher.ui.applySystemBars
 import dev.omalauncher.wayland.WindowRenderer
 import dev.omalauncher.wayland.XdgToplevel
 import kotlinx.coroutines.flow.first
@@ -57,7 +56,6 @@ import kotlinx.coroutines.flow.first
  * Recents card and behaves like a separate app.
  */
 class LinuxWindowActivity : InstantActivity() {
-    private val runtime get() = (application as App).runtime
     private var window: XdgToplevel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,9 +67,7 @@ class LinuxWindowActivity : InstantActivity() {
             return
         }
         this.window = window
-        applySystemBars(this, Palette.isLight)
         setInstantContent {
-            LaunchedEffect(Palette.isLight) { applySystemBars(this@LinuxWindowActivity, Palette.isLight) }
             AppWindow(runtime, window)
             BackHandler { backInstantly() }
             LaunchedEffect(window) {
@@ -110,8 +106,19 @@ class LinuxWindowActivity : InstantActivity() {
     // Lint flags super.dispatchKeyEvent: ComponentActivity marks its override @RestrictTo, but Activity's is public API.
     @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Super+Esc leaves the window as Back does, where Esc itself is the window's: it keeps running in Recents.
+        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE && event.isMetaPressed && event.action == KeyEvent.ACTION_DOWN) {
+            if (event.repeatCount == 0) backInstantly()
+            return true
+        }
         if (runtime.keyboard.handle(event)) return true
         return super.dispatchKeyEvent(event)
+    }
+
+    /** Keys held as the window goes, like Super, would stay down for it: Android sends their lift elsewhere. */
+    override fun onPause() {
+        super.onPause()
+        runtime.keyboard.releaseHeld()
     }
 }
 
@@ -189,7 +196,8 @@ private fun AppWindow(
                     .onSizeChanged { surfaceView?.visibleHeight = it.height },
             ) {
                 // Over the SurfaceView, which Compose's pointer input doesn't reach.
-                Box(Modifier.fillMaxSize().linuxWindowInput(runtime.wm, window))
+                // A tap on the prompt line brings the keyboard back, as the ⌨ button does.
+                Box(Modifier.fillMaxSize().linuxWindowInput(runtime.wm, window) { sink?.takeUnless { it.showing }?.show() })
                 Box(
                     Modifier
                         .align(Alignment.BottomEnd)
@@ -204,7 +212,7 @@ private fun AppWindow(
             }
             // Below the window rather than over it, so the window shrinks and nothing hides behind the keys; only over a
             // docked keyboard (a hardware keyboard's toolbar takes no height, and that keyboard has these keys).
-            if (keyboard > 0) ExtraKeys(runtime.keyboard, Modifier.background(Palette.background))
+            if (keyboard > 0) ExtraKeys(runtime, Modifier.background(Palette.background))
         }
     }
 }

@@ -58,9 +58,15 @@ data class CatalogEntry(
 
     val supported get() = owl <= Compiler.LEVEL
 
-    /** Runs commands in the guest or installs packages, like [dev.omalauncher.widgets.lang.Program.needsLinux]; http requests, web images and sounds don't count. */
-    val needsLinux get() = requires.isNotEmpty() || commands.any { !it.startsWith("http GET ") && !it.startsWith("http POST ") && !it.startsWith("image GET ") && !it.startsWith("sound GET ") && !it.startsWith(Compiler.IF_LINUX) }
+    /**
+     * Runs commands in the guest or installs packages, like [dev.omalauncher.widgets.lang.Program.needsLinux]; http
+     * requests, web images, sounds, fonts and what Android tells it (notifications, apps, recent apps) don't count.
+     */
+    val needsLinux get() = requires.isNotEmpty() || commands.any { c -> NO_LINUX.none { c.startsWith(it) } && !c.startsWith(Compiler.IF_LINUX) }
 }
+
+/** What a store item's listed commands start with when they don't run in Linux; see [CatalogEntry.needsLinux]. */
+private val NO_LINUX = listOf("http GET ", "http POST ", "image GET ", "sound GET ", "font GET ", "read Android ", "read installed Android apps", "read the recently opened apps")
 
 object Catalog {
     /**
@@ -106,6 +112,7 @@ object Catalog {
         val size = (f["size"] as? Lst)?.items?.mapNotNull { it.num()?.toInt() }?.takeIf { it.size == 2 }?.let { it[0] to it[1] }
         val requires =
             (f["requires"] as? Obj)?.fields.orEmpty().mapValues { (_, v) -> (v as? Lst)?.items.orEmpty().mapNotNull { (it as? Str)?.v } }
+                .filterValues { it.isNotEmpty() }
         // Both name the installed file (Market.fileFor), so only what Review lets into the store.
         val id = s("id")?.takeIf { it.matches(ID) } ?: return null
         val author = s("author")?.takeIf { it == id.substringBefore('/') } ?: return null
@@ -199,21 +206,7 @@ object Catalog {
     }
 
     /** A JSON string literal. */
-    fun q(s: String): String {
-        val sb = StringBuilder("\"")
-        for (c in s) {
-            when {
-                c == '"' -> sb.append("\\\"")
-                c == '\\' -> sb.append("\\\\")
-                c == '\n' -> sb.append("\\n")
-                c == '\r' -> sb.append("\\r")
-                c == '\t' -> sb.append("\\t")
-                c < ' ' -> sb.append("\\u%04x".format(c.code))
-                else -> sb.append(c)
-            }
-        }
-        return sb.append('"').toString()
-    }
+    fun q(s: String): String = Json.write(Str(s))!!
 
     /** Dotted versions compare numerically: 1.10 > 1.9. */
     fun compareVersions(
