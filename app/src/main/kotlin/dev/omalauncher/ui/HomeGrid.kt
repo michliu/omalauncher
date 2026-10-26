@@ -926,8 +926,10 @@ private fun TiledPage(
         }
         if (isFacePage(page) && carried == null && items.isEmpty()) {
             feed(page)
-        } else if (items.none { it.key != carried } && (carried != null || LauncherStyle.emptyPageHint)) {
-            // "drop here" stays even without the hint: it says where a carried tile can land.
+        } else if (items.none { it.key != carried } && (carried != null || (LauncherStyle.emptyPageHint && (LauncherStyle.emptyPageRight || page == 1)))) {
+            // An empty page is the one after the last, or unfolded the blank half beside an odd last page, but for page 1
+            // of an empty home. With home.empty-page-right off, that half stays blank rather than inviting a new page, and
+            // with home.empty-page-hint off every one does; "drop here" stays either way: it says where a carried tile can land.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 BasicText(
                     when {
