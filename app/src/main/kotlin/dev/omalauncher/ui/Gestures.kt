@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.annotation.StringRes
 import android.util.Log
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -31,9 +32,11 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.PopupPositionProvider
 import dev.omalauncher.LauncherData
 import dev.omalauncher.LockService
+import dev.omalauncher.R
 import dev.omalauncher.Runtime
 import dev.omalauncher.linux.LinuxState
 import dev.omalauncher.theme.Style
@@ -53,15 +56,15 @@ import kotlin.math.sign
 enum class GestureAction(
     /** Saved in style.toml: never rename. */
     val id: String,
-    val label: String,
+    @StringRes val label: Int,
 ) {
-    Notifications("notifications", "notifications"),
-    Settings("settings", "settings"),
-    Style("style", "style"),
-    Store("store", "widget store"),
-    Agents("agents", "coding agents"),
-    Terminal("terminal", "terminal"),
-    Lock("lock", "lock screen"),
+    Notifications("notifications", R.string.gestures_action_notifications),
+    Settings("settings", R.string.gestures_action_settings),
+    Style("style", R.string.gestures_action_style),
+    Store("store", R.string.gestures_action_store),
+    Agents("agents", R.string.gestures_action_agents),
+    Terminal("terminal", R.string.gestures_action_terminal),
+    Lock("lock", R.string.gestures_action_lock),
     ;
 
     companion object {
@@ -75,10 +78,10 @@ enum class GestureAction(
  * [GestureAction]'s id (swiping down pulls down the notification shade by default), or "none".
  */
 class Gestures(
-    context: Context,
+    /** The app's, for home's error banner and settings, which say what a gesture opens. */
+    internal val context: Context,
     private val style: StyleStore,
 ) {
-    private val context = context.applicationContext
 
     /** drawer.owl by default: the app drawer, like stock launchers, written in owl. Saved as it's set. */
     var swipeUp: String
@@ -163,8 +166,10 @@ internal fun Runtime.panelOf(choice: String) = choice.takeIf { it != Gestures.NO
 /** What [choice] is called in settings: nothing, an action's label, or the panel's name (its file's, while it has none). */
 internal fun Runtime.gestureLabel(choice: String) =
     when {
-        choice == Gestures.NONE -> "nothing"
-        else -> GestureAction.of(choice)?.label ?: widgets.panels().firstOrNull { it.file.name == choice }?.name ?: choice.removeSuffix(".owl")
+        choice == Gestures.NONE -> gestures.context.getString(R.string.gestures_nothing)
+        else ->
+            GestureAction.of(choice)?.let { gestures.context.getString(it.label) }
+                ?: widgets.panels().firstOrNull { it.file.name == choice }?.name ?: choice.removeSuffix(".owl")
     }
 
 /**
@@ -172,17 +177,21 @@ internal fun Runtime.gestureLabel(choice: String) =
  * and the drawer quietly shows another until they're fixed.
  */
 internal fun Runtime.gestureProblems(): List<Pair<String, List<String>>> {
-    val drawer = widgets.drawerPanel()?.let { if (it == WidgetEngine.STOCK_DRAWER) "the stock drawer" else gestureLabel(it) } ?: "nothing"
+    val context = gestures.context
+    val drawer =
+        widgets.drawerPanel()?.let { if (it == WidgetEngine.STOCK_DRAWER) context.getString(R.string.gestures_stock_drawer) else gestureLabel(it) }
+            ?: context.getString(R.string.gestures_nothing)
+    val drawerShows = context.getString(R.string.gestures_drawer_shows, drawer)
     val meanwhile =
-        linkedMapOf(gestures.swipeUp to "the drawer shows $drawer", WidgetEngine.DRAWER to "the drawer shows $drawer") +
-            (gestures.swipeDown to "swiping down opens nothing")
+        linkedMapOf(gestures.swipeUp to drawerShows, WidgetEngine.DRAWER to drawerShows) +
+            (gestures.swipeDown to context.getString(R.string.gestures_swipe_down_nothing))
     val panels =
         meanwhile.mapNotNull { (choice, what) ->
             val spec = widgets.panels().firstOrNull { it.file.name == choice && it.error != null } ?: return@mapNotNull null
-            spec.file.name to listOf("$what until it's fixed: " + spec.error!!.lineSequence().first())
+            spec.file.name to listOf(context.getString(R.string.gestures_until_fixed, what, spec.error!!.lineSequence().first()))
         }
     // keybar.owl too: the stock keys stand in for it as quietly.
-    val keys = widgets.specs.firstOrNull { it.file.name == WidgetEngine.KEYBAR && it.error != null }?.let { it.file.name to listOf("the terminal key bar is the stock one until it's fixed: " + it.error!!.lineSequence().first()) }
+    val keys = widgets.specs.firstOrNull { it.file.name == WidgetEngine.KEYBAR && it.error != null }?.let { it.file.name to listOf(context.getString(R.string.gestures_keybar_until_fixed, it.error!!.lineSequence().first())) }
     return panels + listOfNotNull(keys)
 }
 
@@ -349,21 +358,20 @@ fun GesturesScreen(
 ) {
     val gestures = runtime.gestures
     // A panel that doesn't compile is still listed, marked, so a pick that stopped working shows why.
-    val panels = runtime.widgets.panels().map { it.file.name to if (it.program == null) "${it.name} (has errors)" else it.name }
-    val actions = GestureAction.entries.map { it.id to it.label }
-    val nothing = listOf(Gestures.NONE to "nothing")
-    OverlayPanel("gestures", onDismiss, contentWidth = ReadingWidth) {
-        GestureRow("swipe up", panels + actions + nothing, gestures.swipeUp) { gestures.swipeUp = it }
+    val panels = runtime.widgets.panels().map { it.file.name to if (it.program == null) stringResource(R.string.gestures_has_errors, it.name) else it.name }
+    val actions = GestureAction.entries.map { it.id to stringResource(it.label) }
+    val nothing = listOf(Gestures.NONE to stringResource(R.string.gestures_nothing))
+    OverlayPanel(stringResource(R.string.gestures_title), onDismiss, contentWidth = ReadingWidth) {
+        GestureRow(stringResource(R.string.gestures_swipe_up), panels + actions + nothing, gestures.swipeUp) { gestures.swipeUp = it }
         EditPanel(runtime, gestures.swipeUp, onAgent)
         Spacer(Modifier.height(8.dp))
-        GestureRow("swipe down", actions + panels + nothing, gestures.swipeDown) { gestures.swipeDown = it }
+        GestureRow(stringResource(R.string.gestures_swipe_down), actions + panels + nothing, gestures.swipeDown) { gestures.swipeDown = it }
         EditPanel(runtime, gestures.swipeDown, onAgent)
         Spacer(Modifier.height(8.dp))
-        GestureRow("double tap", nothing + actions + panels, gestures.doubleTap) { gestures.doubleTap = it }
+        GestureRow(stringResource(R.string.gestures_double_tap), nothing + actions + panels, gestures.doubleTap) { gestures.doubleTap = it }
         EditPanel(runtime, gestures.doubleTap, onAgent)
         BasicText(
-            "panels are owl files, the drawer among them: edit them like widgets, or create one with your agent from home's menu. " +
-                "with no panel on swipe up, tapping the bar still opens the drawer",
+            stringResource(R.string.gestures_hint),
             Modifier.padding(top = 12.dp, start = 14.dp, end = 14.dp),
             style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small),
         )
@@ -397,7 +405,7 @@ private fun EditFile(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText("[ edit ]", Modifier.padding(end = 8.dp), style = Mono.copy(color = Palette.accent))
+        BasicText("[ ${stringResource(R.string.gestures_edit)} ]", Modifier.padding(end = 8.dp), style = Mono.copy(color = Palette.accent))
         BasicText(spec.file.name, style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small))
     }
 }
@@ -413,7 +421,7 @@ private fun GestureRow(
     val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
     // A file name not among the panels (removed since): shown as it's saved, so the user sees it and picks another.
-    val picked = choices.firstOrNull { it.first == current } ?: (current to "$current (missing)")
+    val picked = choices.firstOrNull { it.first == current } ?: (current to stringResource(R.string.gestures_missing, current))
     Row(
         Modifier.card(onClick = { open = !open }),
         verticalAlignment = Alignment.CenterVertically,
@@ -443,7 +451,7 @@ private fun GestureRow(
 }
 
 /** Just under the anchor, lined up with its end, and kept on screen. */
-private object BelowAnchorEnd : PopupPositionProvider {
+internal object BelowAnchorEnd : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
