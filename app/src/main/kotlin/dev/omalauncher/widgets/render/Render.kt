@@ -124,6 +124,7 @@ import dev.omalauncher.ui.frame
 import dev.omalauncher.ui.holdsKeys
 import dev.omalauncher.ui.keyActivated
 import dev.omalauncher.ui.TerminalView
+import dev.omalauncher.ui.BrowserView
 import dev.omalauncher.widgets.lang.Action
 import dev.omalauncher.widgets.lang.Builtins
 import dev.omalauncher.widgets.lang.Env
@@ -150,6 +151,9 @@ import dev.omalauncher.widgets.lang.textOrNull
 
 /** Whether the home screen is hidden (drawer, full-screen panel); animated widgets stop ticking while it is. */
 val LocalHomeCovered = staticCompositionLocalOf<() -> Boolean> { { false } }
+
+/** Whether a widget screen kept composed is out of sight (see [WidgetScreen]). */
+private val LocalScreenHidden = staticCompositionLocalOf<() -> Boolean> { { false } }
 
 /** Whether an Input's `focus` may take focus: only on a screen the user opened, never on a tile or in a preview. */
 val LocalInputFocus = staticCompositionLocalOf { false }
@@ -253,7 +257,9 @@ private const val TICK = 1_000_000_000L / WIDGET_FPS
 fun WidgetScreen(
     inst: WidgetInstance,
     modifier: Modifier = Modifier,
-) = ScreenNodes(inst, modifier, Modifier.fillMaxSize(), ripple = true)
+    /** Kept while out of sight, as the closed drawer is: its frame clock stops, and its lists go back to their start. */
+    hidden: () -> Boolean = { false },
+) = CompositionLocalProvider(LocalScreenHidden provides hidden) { ScreenNodes(inst, modifier, Modifier.fillMaxSize(), ripple = true) }
 
 /** Extra keys (`keybar "…" { }`): their nodes over the soft keyboard, as wide as there's room for and as tall as they are. */
 @Composable
@@ -270,7 +276,7 @@ private fun ScreenNodes(
     ripple: Boolean,
 ) {
     val nodes = inst.program.screen ?: return
-    if (inst.program.animated) FrameClock(inst) { false }
+    if (inst.program.animated) FrameClock(inst, LocalScreenHidden.current)
     BoxWithConstraints(modifier) {
         // Set before the nodes compose, so the first frame already has the size instead of null.
         inst.setScreen(maxWidth.value.toDouble(), maxHeight.value.toDouble())
@@ -490,6 +496,16 @@ private fun LazyNodes(
     val slices = nodes.mapIndexed { at, n -> if (n is WNode.For) forSlice(n, at, env, inst) else Slice.One(n) }
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
+    // A screen kept while hidden opens at the start of its lists again, as one composed anew does.
+    val hidden = LocalScreenHidden.current
+    LaunchedEffect(hidden) {
+        snapshotFlow { hidden() }.collect {
+            if (it) {
+                listState.scrollToItem(0)
+                gridState.scrollToItem(0)
+            }
+        }
+    }
     // Listed from the end, it goes back there when its items change: new search results start at the bar, where the best one is.
     if (reverse) {
         // The slices' own key lists: the same lists while nothing changed, so comparing them is cheap.
@@ -736,6 +752,24 @@ private fun Element(
             if (command != Null) {
                 val term = remember(el, command, fontSize) { inst.terminal(el, command?.toString(), fontSize) }
                 TerminalView(term, mod.then(if (sized) Modifier else Modifier.fillMaxSize()))
+            }
+        }
+        "Browser" -> {
+            val url = p.observe("url")?.takeIf { it != Null }?.toString()
+            // Script off unless the node asks: it's what makes a page able to do anything on its own.
+            val js = p.observe("js")?.truthy == true
+            // A NaN or negative zoom would throw as the page's text size is worked out; 1 is the page's own.
+            val zoom = p.observe("zoom")?.num()?.takeIf { it.isFinite() && it > 0 } ?: 1.0
+            // A URL built from a value still loading waits for it, rather than loading about:blank first.
+            if (url != null) {
+                val page = remember(el, url, js, zoom) { inst.browser(el, url, js, zoom) }
+                BrowserView(
+                    page,
+                    mod.then(if (sized) Modifier else Modifier.fillMaxSize()),
+                    onTitle = el.handlers["onTitle"]?.let { a -> { v: String -> a.run(p.env, listOf(Str(v))) } },
+                    onNavigate = el.handlers["onNavigate"]?.let { a -> { v: String -> a.run(p.env, listOf(Str(v))) } },
+                    onProgress = el.handlers["onProgress"]?.let { a -> { v: Double -> a.run(p.env, listOf(Num(v))) } },
+                )
             }
         }
     }

@@ -20,6 +20,9 @@
 
     <string name="home_drop_here">solte aqui</string>
     <string name="home_drop_face_only">aqui só cabe uma face</string>
+    <!-- The cue over a locked home screen. -->
+    <string name="home_lock_locked">tela bloqueada</string>
+    <string name="home_lock_unlock">desbloquear</string>
 
     <plurals name="home_file_problems">
         <item quantity="one">%1$s: %2$d problema</item>
@@ -55,7 +58,7 @@
     <string name="home_refresh">atualizar</string>
     <string name="home_refreshing">atualizando</string>
     <string name="home_job_failed">falhou:</string>
-    <string name="home_job_whole_log">toque para ver o log completo</string>
+    <string name="home_job_whole_log">log completo</string>
     <string name="home_job_less">menos</string>
     <string name="home_job_copy">copiar</string>
     <string name="home_settings">configurações</string>
