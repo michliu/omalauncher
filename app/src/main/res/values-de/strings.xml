@@ -10,4 +10,5 @@
     <string name="activity_voice">Sprechen</string>
     <string name="activity_settings">Einstellungen</string>
     <string name="notification_listener">Omalauncher-Widgets</string>
+    <string name="lock_service_description">Sperrt den Bildschirm, wenn die Sperrgeste auf dem Startbildschirm verwendet wird. Omalauncher liest über diesen Dienst nichts.</string>
 </resources>

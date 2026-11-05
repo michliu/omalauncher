@@ -23,6 +23,7 @@
     <string name="style_hidden">ausgeblendet</string>
     <string name="style_empty_page_left">leere seite links</string>
     <string name="style_empty_page_right">leere seite rechts</string>
+    <string name="style_empty_page_hint">notiz zur leeren seite</string>
     <string name="style_columns">spalten</string>
     <string name="style_pages">seiten</string>
     <string name="style_pages_one">eine</string>
@@ -116,6 +117,14 @@
     <string name="gestures_title">gesten</string>
     <string name="gestures_swipe_up">nach oben wischen</string>
     <string name="gestures_swipe_down">nach unten wischen</string>
+    <string name="gestures_double_tap">doppeltippen</string>
+    <string name="gestures_action_notifications">benachrichtigungen</string>
+    <string name="gestures_action_settings">einstellungen</string>
+    <string name="gestures_action_style">stil</string>
+    <string name="gestures_action_store">widget-store</string>
+    <string name="gestures_action_agents">coding-agenten</string>
+    <string name="gestures_action_terminal">terminal</string>
+    <string name="gestures_action_lock">bildschirm sperren</string>
     <string name="gestures_nothing">nichts</string>
     <string name="gestures_has_errors">%1$s (hat fehler)</string>
     <string name="gestures_missing">%1$s (fehlt)</string>

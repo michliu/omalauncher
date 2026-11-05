@@ -10,4 +10,5 @@
     <string name="activity_voice">语音</string>
     <string name="activity_settings">设置</string>
     <string name="notification_listener">Omalauncher 小组件</string>
+    <string name="lock_service_description">在主屏幕使用锁屏手势时锁定屏幕。Omalauncher 不会通过此服务读取任何内容。</string>
 </resources>

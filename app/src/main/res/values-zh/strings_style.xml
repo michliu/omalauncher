@@ -23,6 +23,7 @@
     <string name="style_hidden">隐藏</string>
     <string name="style_empty_page_left">左侧空白页</string>
     <string name="style_empty_page_right">右侧空白页</string>
+    <string name="style_empty_page_hint">空白页备注</string>
     <string name="style_columns">列数</string>
     <string name="style_pages">页数</string>
     <string name="style_pages_one">一页</string>
@@ -114,6 +115,14 @@
     <string name="gestures_title">手势</string>
     <string name="gestures_swipe_up">上滑</string>
     <string name="gestures_swipe_down">下滑</string>
+    <string name="gestures_double_tap">双击</string>
+    <string name="gestures_action_notifications">通知</string>
+    <string name="gestures_action_settings">设置</string>
+    <string name="gestures_action_style">外观</string>
+    <string name="gestures_action_store">小组件商店</string>
+    <string name="gestures_action_agents">编程智能体</string>
+    <string name="gestures_action_terminal">终端</string>
+    <string name="gestures_action_lock">锁屏</string>
     <string name="gestures_nothing">无</string>
     <string name="gestures_has_errors">%1$s（有错误）</string>
     <string name="gestures_missing">%1$s（缺失）</string>
