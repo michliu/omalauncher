@@ -95,7 +95,9 @@ class Notifications(
      * shade's Clear all does. "action" presses the [arg]-th of its buttons, and "reply" sends [arg] as typed text through
      * the one that takes it. "snooze" hides it for [arg] seconds, after which Android shows it again; "snoozeAll" every
      * one that can be cleared, for [key] seconds. "unsnooze" brings a snoozed one back now, "unsnoozeAll" every one,
-     * the shade's snoozes too. Without access, opens the setting that grants it.
+     * the shade's snoozes too. Without access, opens the setting that grants it. Granted but not bound yet, after an
+     * update or a start, asks Android to bind the listener again instead, as dnd does, rather than opening the
+     * access setting for access already granted.
      */
     fun control(
         command: String,
@@ -103,7 +105,8 @@ class Notifications(
         arg: Value?,
     ) {
         val listener = MediaListener.connected
-        if (!media.granted || listener == null) return media.openAccessSettings()
+        if (!media.granted) return media.openAccessSettings()
+        if (listener == null) return media.reconnect()
         if (command == "clear") return listener.cancelAllNotifications()
         // Every one that can be cleared, for "mute 1h": each comes back when its time is up. The seconds come in key's place.
         if (command == "snoozeAll") {
