@@ -27,6 +27,7 @@ import dev.omalauncher.linux.VOICE_COMMAND
 import dev.omalauncher.linux.Gpu
 import dev.omalauncher.linux.LinuxApp
 import dev.omalauncher.linux.OpenBridge
+import dev.omalauncher.linux.PhoneBridge
 import dev.omalauncher.linux.Pacman
 import dev.omalauncher.linux.Proot
 import dev.omalauncher.linux.SystemUpdates
@@ -102,7 +103,7 @@ class Runtime(
     val themes = ThemeStore(context, proot, style, isLinux = { linux }, onConfigChanged = ::syncGuest)
     private val audio = AudioBridge(proot)
     private val openBridge = OpenBridge(context, proot, onOpenFiles = ::openFiles, onOpenVoice = ::openVoice, onEdit = ::edit)
-    val agents = AgentStore(proot, onChanged = ::syncGuest)
+    val agents = AgentStore(proot, text = { id, arg -> context.getString(id, arg) }, onChanged = ::syncGuest)
     val pacman = Pacman(context, proot)
     val widgets = WidgetEngine(context, proot, this)
 
@@ -115,11 +116,20 @@ class Runtime(
     /** Widgets' android.calendar, calendar("request") and calendar("open"). */
     val calendar = PhoneCalendar(context)
 
+    /** `phone` in the guest: location, calendar and AirPods for agents, as far as widgets were allowed them. */
+    private val phoneBridge by lazy { PhoneBridge(context, proot, location, calendar, { widgets.airpods }, scope) }
+
     /** The voice screen's replies, in the phone's voice. */
     val speaker = Speaker(context)
 
     /** A spoken conversation with a coding agent: the voice screen's (VoiceActivity). */
-    val voice by lazy { VoiceSession(context, proot, agents, speaker) }
+    private val voiceSession = lazy { VoiceSession(context, proot, agents, speaker) }
+    val voice by voiceSession
+
+    init {
+        // Not started just for this: a Voice that never ran has nothing to stop.
+        agents.release = { agent -> voiceSession.isInitialized() && voice.release(agent.bin) }
+    }
     val updates = SystemUpdates(proot, pacman, agents)
     val gpu = Gpu(context, proot, pacman)
 
@@ -135,6 +145,7 @@ class Runtime(
                 { defaultApps(proot.applications) },
                 { bundledIcons(context, proot.home) },
                 openBridge::managed,
+                { phoneBridge.managed() },
                 proot::managed,
                 pacman::managed,
                 agents::managed,
@@ -340,6 +351,7 @@ class Runtime(
                 server.start()
                 proot.procShim.start()
                 openBridge.start()
+                phoneBridge.start()
             }
         } else {
             // Linux installed again: its new home has no foot-font.ini yet.
