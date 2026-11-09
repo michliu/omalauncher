@@ -161,6 +161,7 @@ class Style(
                 "The empty page after home's last, for new tiles; false shows it only while a tile is carried, to drop it on.",
             )
         val EMPTY_PAGE_HINT = Setting.Flag("home.empty-page-hint", true, "The note on a page without widgets saying to long-press for one; false leaves the page blank.")
+        val HOME_PAGE = Setting.Count("home.home-page", 1, -99..99, "The page home opens on and Home returns to: 1 is the first page of tiles, 0 the face left of it, -1 the one left of that. A number with no page of its own takes the first page after it, or the last page when it is past them all.")
         val COLUMNS = Setting.Count("home.columns", 6, 4..9, "Columns of home's grid. Fewer make bigger cells, and apps show their names under their icons once a cell is tall enough.")
         val FORCE_SINGLE_PAGE =
             Setting.Flag(
@@ -263,7 +264,7 @@ object StyleFile {
 
     val ALL: List<Setting<*>> =
         with(Style) {
-            listOf(THEME, BACKGROUND, FONT, APP_TILES, RECENT_APPS, EMPTY_PAGE_LEFT, EMPTY_PAGE_RIGHT, EMPTY_PAGE_HINT, COLUMNS, FORCE_SINGLE_PAGE, GAPS_IN, GAPS_OUT, TILE_OPACITY, TILE_FROST, TILE_BORDER_WIDTH, TILE_BORDER, TILE_BORDER_FOCUSED) +
+            listOf(THEME, BACKGROUND, FONT, APP_TILES, RECENT_APPS, EMPTY_PAGE_LEFT, EMPTY_PAGE_RIGHT, EMPTY_PAGE_HINT, HOME_PAGE, COLUMNS, FORCE_SINGLE_PAGE, GAPS_IN, GAPS_OUT, TILE_OPACITY, TILE_FROST, TILE_BORDER_WIDTH, TILE_BORDER, TILE_BORDER_FOCUSED) +
                 listOf(SCREEN_GAPS_OUT, SCREEN_BORDER_WIDTH, KEYBAR_GAPS_OUT, KEYBAR_BORDER_WIDTH, MONOCHROME_ICONS, CORNER_SCALE) +
                 listOf(STATUS_BAR_SHOWN) + STATUS_BAR.all + NAVIGATION_BAR.all + listOf(TERMINAL_FONT, TERMINAL_TEXT, SWIPE_UP, SWIPE_DOWN, DOUBLE_TAP)
         }

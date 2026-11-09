@@ -26,6 +26,7 @@ import dev.omalauncher.linux.FILES_COMMAND
 import dev.omalauncher.linux.VOICE_COMMAND
 import dev.omalauncher.linux.Gpu
 import dev.omalauncher.linux.LinuxApp
+import dev.omalauncher.linux.LinuxDns
 import dev.omalauncher.linux.OpenBridge
 import dev.omalauncher.linux.PhoneBridge
 import dev.omalauncher.linux.Pacman
@@ -116,8 +117,11 @@ class Runtime(
     /** Widgets' android.calendar, calendar("request") and calendar("open"). */
     val calendar = PhoneCalendar(context)
 
-    /** `phone` in the guest: location, calendar and AirPods for agents, as far as widgets were allowed them. */
-    private val phoneBridge by lazy { PhoneBridge(context, proot, location, calendar, { widgets.airpods }, scope) }
+    /** The phone's folders the user let Linux reach: in Files, and through `omalauncher`. */
+    val phoneFolders = PhoneFolders(context)
+
+    /** `omalauncher` in the guest (and `phone`, its old name): location, calendar and AirPods for agents, as far as widgets were allowed them; the phone folders. */
+    private val phoneBridge by lazy { PhoneBridge(context, proot, location, calendar, { widgets.airpods }, phoneFolders, scope) }
 
     /** The voice screen's replies, in the phone's voice. */
     val speaker = Speaker(context)
@@ -132,6 +136,9 @@ class Runtime(
     }
     val updates = SystemUpdates(proot, pacman, agents)
     val gpu = Gpu(context, proot, pacman)
+
+    /** The guest's resolv.conf, on the phone's DNS servers while Linux is up. */
+    private val dns = LinuxDns(context, proot.rootfs)
 
     /** The launcher's own provided files (default widgets, their docs); see [Provisioner]. */
     private val launcherFiles = Provisioner(proot.filesDir, LauncherData.LAUNCHER_MANIFEST, listOf(widgets::managed, style::managed))
@@ -352,6 +359,7 @@ class Runtime(
                 proot.procShim.start()
                 openBridge.start()
                 phoneBridge.start()
+                dns.start()
             }
         } else {
             // Linux installed again: its new home has no foot-font.ini yet.

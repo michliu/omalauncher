@@ -141,6 +141,8 @@ object LauncherStyle {
 
     /** The note on a home page without widgets saying to long-press for one. */
     val emptyPageHint get() = style[Style.EMPTY_PAGE_HINT]
+    /** The page home opens on and returns to when Home is pressed; see [homePageIn]. */
+    val homePage get() = style[Style.HOME_PAGE]
 
     /** Forces one home page even on a screen [SideRail]'s auto-detect would otherwise split in two. */
     val forceSinglePage get() = style[Style.FORCE_SINGLE_PAGE]

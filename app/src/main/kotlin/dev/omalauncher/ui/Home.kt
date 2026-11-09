@@ -123,9 +123,11 @@ fun HomeScreen(
     // shift as the widgets' pages joined, with home turning to page 1 among them.
     val slots = if (engine.loaded) slotsOf(pageNumbers, per, ::full) else emptyList()
     fun slotOf(page: Int) = slots.indexOfFirst { page in it }
-    // Home opens on page 1, not left of it; on the first tile page, if a layout from before faces has none numbered 1.
+    fun homePage() = homePageIn(engine.pages, LauncherStyle.homePage)
+    // Home opens on home.home-page, page 1 unless set, or the first page after it if none is numbered so. Among the pages
+    // that hold something: the empty ones waiting at either end aren't home.
     // Made again once the widgets have loaded, so it starts on that page among all of them.
-    val pager = key(engine.loaded) { rememberPagerState(initialPage = slotOf(pageNumbers.firstOrNull { it >= 1 } ?: 1).coerceAtLeast(0)) { slots.size } }
+    val pager = key(engine.loaded) { rememberPagerState(initialPage = slotOf(homePage()).coerceAtLeast(0)) { slots.size } }
     // A tile dropped on another page: show that page once the page list has caught up, by the list as it is then. The
     // list the request was made with could be one from before (a store add spilling onto page 2 showed a face). A swipe
     // meanwhile wins, and the request goes with it rather than firing later.
@@ -201,6 +203,8 @@ fun HomeScreen(
     LaunchedEffect(pager.currentPage, slots, engine.loaded) {
         if (!engine.loaded) return@LaunchedEffect
         if (slots != listed[0]) {
+            // The first pages after loading: the pager was made on home.home-page, so that is the active page.
+            if (listed[0].isEmpty()) engine.activePage = slots.getOrNull(pager.currentPage)?.first() ?: 1
             listed[0] = slots
             val i = slotOf(engine.activePage)
             if (showPage == null && i >= 0 && i != pager.currentPage) {
@@ -260,7 +264,7 @@ fun HomeScreen(
     val typing = terminals.active != null
     LaunchedEffect(typing) { if (!typing) terminals.keyboard?.hide() }
     DisposableEffect(state) {
-        state.onHomeAgain = { if (arrange.folder != null) arrange.folder = null else state.requestedPage = 1 }
+        state.onHomeAgain = { if (arrange.folder != null) arrange.folder = null else state.requestedPage = homePage() }
         onDispose { state.onHomeAgain = {} }
     }
     LaunchedEffect(state.requestedPage) {
@@ -594,6 +598,12 @@ internal fun pagerPages(
     val withFace = if (emptyPageLeft) listOf(minOf(pages.first(), FACE_PAGE + 1) - 1) + pages else pages
     return if (!emptyPageRight || lastEmpty) withFace else withFace + (withFace.last() + 1)
 }
+
+/** The page [wanted] names among [pages]: the first at or after it, the last when it is beyond them all. */
+internal fun homePageIn(
+    pages: List<Int>,
+    wanted: Int,
+): Int = pages.firstOrNull { it >= wanted } ?: pages.last()
 
 /**
  * The pager's slots, what each of its positions shows left to right: a page each with [per] 1. Unfolded ([per] 2), tile
