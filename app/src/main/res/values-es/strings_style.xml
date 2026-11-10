@@ -28,6 +28,13 @@
     <string name="style_pages">páginas</string>
     <string name="style_pages_one">una</string>
     <string name="style_pages_auto">auto</string>
+    <string name="style_cover_screen">pantalla externa</string>
+    <string name="style_cover_upright">vertical</string>
+    <string name="style_cover_turned">girada</string>
+    <string name="style_unfolded">desplegado</string>
+    <string name="style_unfolded_own">pantalla propia</string>
+    <string name="style_unfolded_pages">páginas</string>
+    <string name="style_unfolded_columns">columnas desplegado</string>
     <string name="style_corners">esquinas</string>
     <string name="style_corners_edge">rectas</string>
     <string name="style_corners_soft">suaves</string>
@@ -90,6 +97,8 @@
     <string name="style_remove_background_title">¿quitar el fondo?</string>
 
     <string name="style_terminal_hint">para las terminales que abras a partir de ahora · más con pacman, como ttf-cascadia-code</string>
+    <string name="style_keyboard_suggestions">sugerencias del teclado</string>
+    <string name="style_keyboard_suggestions_hint">sugerencias, escritura deslizante y dictado; el texto llega a la terminal palabra por palabra · desde la próxima vez que se abra el teclado</string>
     <plurals name="style_terminal_size">
         <item quantity="one">%1$s pt · %2$d columna en vertical</item>
         <item quantity="many">%1$s pt · %2$d columnas en vertical</item>

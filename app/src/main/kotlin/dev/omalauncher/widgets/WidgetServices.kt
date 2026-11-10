@@ -529,8 +529,9 @@ class WidgetServices(
     /**
      * The drawer for `source d = android.drawer`: `{apps, linux, monochrome, work, updates}`. `apps` is every app in the drawer's
      * order (owl apps, Linux apps, shortcuts, Android apps, then the work profile's shortcuts and apps), each
-     * `{key, kind, name, label, icon, hasIcon, initials, profile, alias, paused, actions, score, last}`:
+     * `{key, kind, name, label, icon, hasIcon, initials, profile, alias, paused, dot, actions, score, last}`:
      * - `label` what screen readers say for it ("WhatsApp work"), for an Image's `label`; `profile` as in `android.apps`; `alias` what search matches besides the name ("WhatsApp work");
+     * - `dot` whether it has a notification dot;
      * - `paused` for an app in a paused work profile; `actions` the words its long-press menu offers, for appAction(...);
      * - `hasIcon` whether `icon` draws anything yet; without, the drawer shows `initials` on a badge, as it does a
      *   silhouette when `monochrome`.
@@ -545,12 +546,14 @@ class WidgetServices(
                 apps.shortcuts.filter { it.work }.map { AppHit.Shortcut(it) } + apps.apps.filter { it.work }.map { AppHit.Android(it) }
         val list =
             hits.take(Builtins.MAX_LIST).map { hit ->
+                val dot = hit.hasDot
                 Obj(
                     mapOf(
                         "key" to Str(hit.key),
                         "kind" to Str(hit.kind),
                         "name" to Str(hit.label),
-                        "label" to Str(hit.spoken),
+                        "label" to Str(if (dot) context.getString(R.string.home_app_has_notifications, hit.spoken) else hit.spoken),
+                        "dot" to bool(dot),
                         "icon" to Str("icon:" + hit.key),
                         "profile" to (hit.profileKind?.let(::Str) ?: Null),
                         "alias" to (hit.alias?.let(::Str) ?: Null),
@@ -620,8 +623,8 @@ class WidgetServices(
         if (name == "run") return run(arg) { done() }
         // Keys go out as they're pressed, many a second while one repeats: nothing to refresh after them.
         when (name) {
-            "pressKey" -> return KeyNames.combo(arg)?.let(runtime.keyboard::press) ?: Unit
-            "typeText" -> return runtime.keyboard.type(arg)
+            "pressKey" -> return KeyNames.combo(arg)?.let { runtime.keyboard.flush(); runtime.keyboard.press(it) } ?: Unit
+            "typeText" -> return runtime.keyboard.run { flush(); type(arg) }
             "latch" -> return runtime.keyboard.latch(arg, args.getOrNull(1).textOrNull())
             "pickImages" -> return runtime.keyboard.pickImages()
             // Nothing to refresh: the source follows the grant itself.
