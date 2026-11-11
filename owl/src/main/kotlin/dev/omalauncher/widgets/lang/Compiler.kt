@@ -27,7 +27,7 @@ class Compiler private constructor(
          * instead of failing on what they don't know. Bump it with every
          * addition a widget could depend on: nodes, properties, builtins.
          */
-        const val LEVEL = 20
+        const val LEVEL = 21
         private const val MAX_ASSET_BYTES = 2 shl 20
 
         /** Pages as far out as a file can ask for; past Int's range, the pages either side of them would wrap. */
@@ -63,6 +63,9 @@ class Compiler private constructor(
 
         /** Each Browser is a web view of its own: a tile has room for two. */
         private const val MAX_BROWSERS = 2
+
+        /** Texts [shaderTexts] gives at most for one Shader: a few picked between, not every combination of many. */
+        private const val MAX_SHADER_TEXTS = 64
 
         private val TIME_WORD = Regex("""\btime\b""")
 
@@ -236,6 +239,8 @@ class Compiler private constructor(
     private var animated = false
     private var terminal = false
     private var browser = false
+    /** Each text a Shader's code can be, null for one worked out while the widget runs. */
+    private val shaders = ArrayList<String?>()
 
     /** Browsers so far, against [MAX_BROWSERS]. */
     private var browsers = 0
@@ -420,6 +425,7 @@ class Compiler private constructor(
             animated = animated,
             terminal = terminal,
             browser = browser,
+            shaders = shaders,
             nodeCount = tileNodes,
         )
     }
@@ -522,6 +528,7 @@ class Compiler private constructor(
             animated = animated,
             terminal = terminal,
             browser = browser,
+            shaders = shaders,
             nodeCount = nodes,
             kind = ast.kind,
             icon = icon,
@@ -847,6 +854,24 @@ class Compiler private constructor(
         return if (c is Str || c is Num) c.toString() else null
     }
 
+    /**
+     * Every text a Shader's code can be, when each is fixed: a literal or a top-level let (`code: print`), joined
+     * (`lib + city`) or picked (`night ? dark : day`); null when any is worked out while the widget runs.
+     */
+    private fun shaderTexts(
+        e: Expr,
+        s: Scope,
+    ): List<String>? =
+        when {
+            e is Expr.Cond -> (shaderTexts(e.a, s) ?: return null) + (shaderTexts(e.b, s) ?: return null)
+            e is Expr.Binary && e.op == "+" -> {
+                val a = shaderTexts(e.a, s) ?: return null
+                val b = shaderTexts(e.b, s) ?: return null
+                a.flatMap { x -> b.map { x + it } }.take(MAX_SHADER_TEXTS)
+            }
+            else -> constText(e, s)?.let(::listOf)
+        }
+
     private fun constant(
         e: Expr,
         what: String,
@@ -925,6 +950,7 @@ class Compiler private constructor(
                 if (e.name == "location") commands += "read the phone's approximate location, once you allow it"
                 if (e.name == "calendar") commands += "read events in the phone's calendars, once you allow it"
                 if (e.name == "airpods") commands += AIRPODS_COMMAND
+                if (e.name == "motion") commands += "read how the phone is tilted while it shows"
                 Global.Source(d.name, "android.${e.name}", null, (every ?: 60.0).coerceAtLeast(1.0), false, 0)
             }
             else -> fail("a source is cmd(\"...\"), stream(\"...\"), http(\"...\"), file(\"...\"), clock, or android.${ANDROID.joinToString("/")}", e.pos)
@@ -1023,9 +1049,15 @@ class Compiler private constructor(
 
     private fun trigger(d: Decl.Trigger): Trigger {
         since(d.kind, d.pos)
+        if (d.kind == "every" && (d.expr as? Expr.Name)?.name == "frame") {
+            since(EVERY_FRAME, d.pos)
+            // Run by the frame clock, which only runs for an animated widget.
+            animated = true
+            return Trigger(TriggerKind.FRAME, Ev.of(Null), handler(Handler(d.kind, d.stmts, d.pos), root, listOf("dt")), d.pos)
+        }
         val expr =
             if (d.kind == "every") {
-                val seconds = constant(d.expr, "every").num() ?: fail("every takes an interval, like every 10s { ... }", d.expr.pos)
+                val seconds = constant(d.expr, "every").num() ?: fail("every takes an interval, like every 10s { ... }, or frame: every frame { ... }", d.expr.pos)
                 if (!(seconds >= 1)) fail("every runs at most once a second", d.expr.pos)
                 Ev.of(Num(seconds))
             } else {
@@ -1250,6 +1282,7 @@ class Compiler private constructor(
         // A shader animates only if its code reads `time`; code that's worked out at run time might.
         if (n.type == "Shader") {
             val code = props["code"]?.const
+            body.props.firstOrNull { it.name == "code" }?.let { p -> shaders += shaderTexts(p.value, scope) ?: listOf(null) }
             if (code == null || shaderReadsTime(code.toString())) animated = true
         }
         if (kind.children == Children.NONE && body.items.isNotEmpty()) fail("${n.type} can't hold other nodes", body.items[0].pos)
