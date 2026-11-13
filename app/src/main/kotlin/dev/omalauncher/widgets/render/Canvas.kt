@@ -106,9 +106,11 @@ private class Kept {
     /** A scene's triangles, its arrays reused from frame to frame; see [Scene3d]. */
     val scene by lazy { Scene3d() }
 
-    /** Images models are textured with, as shaders, by the bitmap they're of; SVGs drawn into a bitmap first. */
-    val textures = IdentityHashMap<android.graphics.Bitmap, android.graphics.BitmapShader>()
-    val svgTextures = IdentityHashMap<android.graphics.Picture, android.graphics.Bitmap>()
+    /** Images models are textured with. */
+    val textures = Textures(unit = false)
+
+    /** A layer's paint: saveLayer copies it, so one serves every layer, nested ones too. */
+    val layerPaint by lazy { Paint() }
     val vertexPaint by lazy { android.graphics.Paint().apply { isFilterBitmap = true } }
 }
 
@@ -572,7 +574,8 @@ private class Painter(
         val first = if (values > 0) eval(n.args[0], env) else Null
         val v = numbers
         for (i in values until n.args.size) v[i] = n.args[i].num(env, 0.0).toFloat()
-        // Transforms take no paint: skip evaluating it (this runs per op, per frame).
+        val named = NamedArgs(n.named, env)
+        // Transforms, text, images, clips and layers take no paint: skip evaluating it (this runs per op, per frame).
         when (n.op) {
             "scene" -> return scene(n, env, first)
             "model" -> return model(n, env, first)
@@ -582,40 +585,6 @@ private class Painter(
                 val sx = v[0]
                 val sy = if (n.args.size > 1) v[1] else sx
                 return scale(sx, sy, Offset(v.opt(n, 2), v.opt(n, 3))) { inside(n.children!!, env) }
-            }
-        }
-        val named = NamedArgs(n.named, env)
-        val width = named["width"]?.num()?.toFloat() ?: 1f
-        val cap =
-            when (named["cap"]?.toString()) {
-                "round" -> StrokeCap.Round
-                "square" -> StrokeCap.Square
-                else -> StrokeCap.Butt
-            }
-        val stroke = brush(named["stroke"])
-        val fill = brush(named["fill"]) ?: if (stroke == null) brush(named["color"]) ?: solid(Palette.foreground.toArgb()) else null
-        val styles = styles(fill, stroke, width, cap)
-
-        when (n.op) {
-            "rect" -> {
-                val r = CornerRadius(named["radius"]?.num()?.toFloat() ?: 0f)
-                for ((b, s) in styles) drawRoundRect(b, Offset(v[0], v[1]), Size(v[2], v[3]), r, alpha = alpha, style = s)
-            }
-            "circle" -> for ((b, s) in styles) drawCircle(b, v[2], Offset(v[0], v[1]), alpha = alpha, style = s)
-            "arc" -> {
-                val r = v[2]
-                val topLeft = Offset(v[0] - r, v[1] - r)
-                // 0 degrees is 12 o'clock, clockwise, like a clock or a gauge.
-                for ((b, s) in styles) drawArc(b, v[3] - 90f, v[4], s is Fill, topLeft, Size(2 * r, 2 * r), alpha = alpha, style = s)
-            }
-            "line" -> drawLine(stroke ?: fill!!, Offset(v[0], v[1]), Offset(v[2], v[3]), width, cap, alpha = alpha)
-            "path" -> {
-                val path = path(first, named["closed"]?.truthy == true) ?: return
-                for ((b, s) in styles) {
-                    // An unclosed path is a line: only fill it when asked to.
-                    if (s is Fill && named["fill"] == null) continue
-                    drawPath(path, b, alpha = alpha, style = s)
-                }
             }
             "text" -> {
                 val color = Builtins.argb(named["color"] ?: named["fill"] ?: Num(0.0), inst)?.let { androidx.compose.ui.graphics.Color(it) } ?: Palette.foreground
@@ -644,6 +613,7 @@ private class Painter(
                 // Text is measured in pixels; undo the dp scale while drawing it.
                 val y = v[2] - h / 2
                 scale(1 / density, 1 / density, pivot = Offset.Zero) { drawText(layout, topLeft = Offset(x * density, y * density)) }
+                return
             }
             "image" -> {
                 val color = named["color"]?.let { Builtins.argb(it, inst) }
@@ -672,6 +642,70 @@ private class Painter(
                             drawPicture(it.nativeCanvas, image.picture, v[1].toFloat(), v[2].toFloat(), v[3].toFloat(), v[4].toFloat(), tint)
                         }
                 }
+                return
+            }
+            "clip" -> return clipRect(v[0], v[1], v[0] + v[2], v[1] + v[3]) { inside(n.children!!, env) }
+            "layer" -> {
+                val alpha = v[0].coerceIn(0f, 1f)
+                val children = n.children!!
+                // Fully opaque, a layer looks the same as no layer; fully clear, nothing inside shows.
+                if (alpha >= 1f) return inside(children, env)
+                if (alpha <= 0f) return
+                // A layer is an offscreen buffer the size of the canvas. One op that doesn't overlap itself looks
+                // the same drawn at the layer's alpha, as a coin fading out does, and that needs no buffer.
+                val only = children.singleOrNull() as? WNode.Draw
+                if (only != null && fadesAlone(only)) {
+                    val before = this@Painter.alpha
+                    this@Painter.alpha = before * alpha
+                    try {
+                        return draw(only, env)
+                    } finally {
+                        this@Painter.alpha = before
+                    }
+                }
+                drawIntoCanvas { c ->
+                    c.saveLayer(Rect(Offset.Zero, size), kept.layerPaint.apply { this.alpha = alpha })
+                    // Restored even when a nested op throws (too many ops), or the rest of the screen draws into the layer.
+                    try {
+                        inside(children, env)
+                    } finally {
+                        c.restore()
+                    }
+                }
+                return
+            }
+        }
+        val width = named["width"]?.num()?.toFloat() ?: 1f
+        val cap =
+            when (named["cap"]?.toString()) {
+                "round" -> StrokeCap.Round
+                "square" -> StrokeCap.Square
+                else -> StrokeCap.Butt
+            }
+        val stroke = brush(named["stroke"])
+        val fill = brush(named["fill"]) ?: if (stroke == null) brush(named["color"]) ?: solid(Palette.foreground.toArgb()) else null
+        val styles = styles(fill, stroke, width, cap)
+
+        when (n.op) {
+            "rect" -> {
+                val r = CornerRadius(named["radius"]?.num()?.toFloat() ?: 0f)
+                for ((b, s) in styles) drawRoundRect(b, Offset(v[0], v[1]), Size(v[2], v[3]), r, alpha = alpha, style = s)
+            }
+            "circle" -> for ((b, s) in styles) drawCircle(b, v[2], Offset(v[0], v[1]), alpha = alpha, style = s)
+            "arc" -> {
+                val r = v[2]
+                val topLeft = Offset(v[0] - r, v[1] - r)
+                // 0 degrees is 12 o'clock, clockwise, like a clock or a gauge.
+                for ((b, s) in styles) drawArc(b, v[3] - 90f, v[4], s is Fill, topLeft, Size(2 * r, 2 * r), alpha = alpha, style = s)
+            }
+            "line" -> drawLine(stroke ?: fill!!, Offset(v[0], v[1]), Offset(v[2], v[3]), width, cap, alpha = alpha)
+            "path" -> {
+                val path = path(first, named["closed"]?.truthy == true) ?: return
+                for ((b, s) in styles) {
+                    // An unclosed path is a line: only fill it when asked to.
+                    if (s is Fill && "fill" !in n.named) continue
+                    drawPath(path, b, alpha = alpha, style = s)
+                }
             }
             "sprite" -> {
                 val sprite = inst.sprite(first)
@@ -694,35 +728,6 @@ private class Painter(
                     val left = snap(x + col * px)
                     val top = snap(y + row * px)
                     drawRect(b, Offset(left, top), Size(snap(x + (col + sprite.runs[3 * i + 2]) * px) - left, snap(y + (row + 1) * px) - top), alpha = alpha)
-                }
-            }
-            "clip" -> clipRect(v[0], v[1], v[0] + v[2], v[1] + v[3]) { inside(n.children!!, env) }
-            "layer" -> {
-                val alpha = v[0].coerceIn(0f, 1f)
-                val children = n.children!!
-                // Fully opaque, a layer looks the same as no layer; fully clear, nothing inside shows.
-                if (alpha >= 1f) return inside(children, env)
-                if (alpha <= 0f) return
-                // A layer is an offscreen buffer the size of the canvas. One op that doesn't overlap itself looks
-                // the same drawn at the layer's alpha, as a coin fading out does, and that needs no buffer.
-                val only = children.singleOrNull() as? WNode.Draw
-                if (only != null && fadesAlone(only)) {
-                    val before = this@Painter.alpha
-                    this@Painter.alpha = before * alpha
-                    try {
-                        return draw(only, env)
-                    } finally {
-                        this@Painter.alpha = before
-                    }
-                }
-                drawIntoCanvas { c ->
-                    c.saveLayer(Rect(Offset.Zero, size), Paint().apply { this.alpha = alpha })
-                    // Restored even when a nested op throws (too many ops), or the rest of the screen draws into the layer.
-                    try {
-                        inside(children, env)
-                    } finally {
-                        c.restore()
-                    }
                 }
             }
         }
@@ -820,13 +825,8 @@ private class Painter(
 
     /** The image at [src] as a repeating shader for a model, and its bitmap; null while it loads. */
     private fun texture(src: String): Pair<android.graphics.BitmapShader, android.graphics.Bitmap>? {
-        val bitmap =
-            when (val image = inst.image(src) ?: return null) {
-                is WidgetImage.Raster -> image.bitmap.asAndroidBitmap()
-                is WidgetImage.Vector -> svgBitmap(image.picture, kept.svgTextures) ?: return null
-            }
-        if (kept.textures.size >= MAX_KEPT) kept.textures.clear()
-        return kept.textures.getOrPut(bitmap) { android.graphics.BitmapShader(bitmap, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT) } to bitmap
+        val bitmap = kept.textures.bitmap(inst.image(src) ?: return null) ?: return null
+        return kept.textures.shader(bitmap) to bitmap
     }
 
     /**
@@ -860,39 +860,68 @@ private class Painter(
         }
 }
 
-/** [picture] drawn into a bitmap, [SVG_TEXTURE_SIDE] on its longer side, kept in [cache]: a texture is sampled as pixels. */
-private fun svgBitmap(
-    picture: android.graphics.Picture,
-    cache: IdentityHashMap<android.graphics.Picture, android.graphics.Bitmap>,
-): android.graphics.Bitmap? {
-    cache[picture]?.let { return it }
-    if (picture.width <= 0 || picture.height <= 0) return null
-    val scale = SVG_TEXTURE_SIDE.toFloat() / maxOf(picture.width, picture.height)
-    val bitmap = android.graphics.Bitmap.createBitmap(maxOf(1, (picture.width * scale).toInt()), maxOf(1, (picture.height * scale).toInt()), android.graphics.Bitmap.Config.ARGB_8888)
-    drawPicture(android.graphics.Canvas(bitmap), picture, 0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
-    if (cache.size >= MAX_KEPT) cache.clear()
-    cache[picture] = bitmap
-    return bitmap
+/**
+ * Images as repeating shaders to texture with, kept by the bitmap they're of, for a Canvas's models and a Shader's
+ * images. A texture is sampled as pixels, so an SVG is drawn into a bitmap first.
+ */
+private class Textures(
+    /** Whether a shader runs from 0 to 1 across its image, as a Shader samples it, rather than in its pixels. */
+    private val unit: Boolean,
+) {
+    private val shaders = IdentityHashMap<android.graphics.Bitmap, android.graphics.BitmapShader>()
+    private val svgs = IdentityHashMap<android.graphics.Picture, android.graphics.Bitmap>()
+
+    /** [image]'s pixels; an SVG's drawn [SVG_TEXTURE_SIDE] on its longer side, null for one of no size. */
+    fun bitmap(image: WidgetImage): android.graphics.Bitmap? =
+        when (image) {
+            is WidgetImage.Raster -> image.bitmap.asAndroidBitmap()
+            is WidgetImage.Vector -> svgBitmap(image.picture)
+        }
+
+    /** [bitmap] as a shader that repeats it past its edges. */
+    fun shader(bitmap: android.graphics.Bitmap): android.graphics.BitmapShader {
+        if (shaders.size >= MAX_KEPT) shaders.clear()
+        return shaders.getOrPut(bitmap) {
+            android.graphics.BitmapShader(bitmap, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT).apply {
+                if (unit) setLocalMatrix(android.graphics.Matrix().apply { setScale(1f / bitmap.width, 1f / bitmap.height) })
+            }
+        }
+    }
+
+    private fun svgBitmap(picture: android.graphics.Picture): android.graphics.Bitmap? {
+        svgs[picture]?.let { return it }
+        if (picture.width <= 0 || picture.height <= 0) return null
+        val scale = SVG_TEXTURE_SIDE.toFloat() / maxOf(picture.width, picture.height)
+        val bitmap = android.graphics.Bitmap.createBitmap(maxOf(1, (picture.width * scale).toInt()), maxOf(1, (picture.height * scale).toInt()), android.graphics.Bitmap.Config.ARGB_8888)
+        drawPicture(android.graphics.Canvas(bitmap), picture, 0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
+        if (svgs.size >= MAX_KEPT) svgs.clear()
+        svgs[picture] = bitmap
+        return bitmap
+    }
 }
 
 /** Declared for every shader; widget code must not declare them again. */
 private const val SHADER_HEADER = "uniform float2 size;\nuniform float time;\n"
-
-/** `uniform shader name;` in a Shader's code. */
-private val SHADER_IMAGE_UNIFORM = Regex("""\buniform\s+shader\s+(\w+)""")
 
 /** What an image uniform samples while it has no image: one clear pixel. */
 private val CLEAR_PIXEL: android.graphics.Bitmap by lazy { android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888) }
 
 /** [v]'s numbers in order, lists inside it flattened, at most 4096 of them. */
 private fun flatFloats(v: Lst): FloatArray {
-    val out = ArrayList<Float>()
+    // Filled in place: a list of boxed Floats would allocate one per number, every frame a Shader reads time.
+    var out = FloatArray(16)
+    var n = 0
     fun walk(x: Value) {
-        if (out.size >= 4096) return
-        if (x is Lst) x.items.forEach(::walk) else out += x.num()?.toFloat() ?: 0f
+        if (n >= 4096) return
+        if (x is Lst) {
+            x.items.forEach(::walk)
+        } else {
+            if (n == out.size) out = out.copyOf(minOf(2 * n, 4096))
+            out[n++] = x.num()?.toFloat() ?: 0f
+        }
     }
     walk(v)
-    return out.toFloatArray()
+    return out.copyOf(n)
 }
 
 /** A full-bleed AGSL fragment shader: `half4 main(float2 fragCoord)`, redrawn every frame it reads time. */
@@ -920,9 +949,9 @@ internal fun ShaderNode(
     }
     val brush = remember(shader) { ShaderBrush(shader) }
     // `uniform shader name;`: images it samples, by name (owl 22).
-    val images = remember(code) { SHADER_IMAGE_UNIFORM.findAll(code).map { it.groupValues[1] }.toSet() }
-    val imageShaders = remember(shader) { IdentityHashMap<android.graphics.Bitmap, android.graphics.BitmapShader>() }
-    val svgImages = remember(shader) { IdentityHashMap<android.graphics.Picture, android.graphics.Bitmap>() }
+    val images = remember(code) { Compiler.shaderImages(code) }
+    // From 0 to 1 across each image, repeating past it, whatever its size in pixels.
+    val textures = remember(shader) { Textures(unit = true) }
     // Reading time keeps the widget's frame clock running, so a shader that never uses it isn't redrawn every frame.
     val readsTime = remember(code) { Compiler.shaderReadsTime(code) }
     // One that doesn't is kept in its own layer, drawn again only when its uniforms change: otherwise every frame of
@@ -937,20 +966,7 @@ internal fun ShaderNode(
                 // Every image needs a shader before drawing: one not given, or still loading, samples clear.
                 for (name in images) {
                     val src = uniforms[name]?.takeIf { it != Null }?.toString()
-                    val bitmap =
-                        when (val image = src?.let(inst::image)) {
-                            is WidgetImage.Raster -> image.bitmap.asAndroidBitmap()
-                            is WidgetImage.Vector -> svgBitmap(image.picture, svgImages)
-                            null -> null
-                        } ?: CLEAR_PIXEL
-                    if (imageShaders.size >= MAX_KEPT) imageShaders.clear()
-                    val sampler =
-                        imageShaders.getOrPut(bitmap) {
-                            // From 0 to 1 across the image, repeating past it, whatever its size in pixels.
-                            android.graphics.BitmapShader(bitmap, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT).apply {
-                                setLocalMatrix(android.graphics.Matrix().apply { setScale(1f / bitmap.width, 1f / bitmap.height) })
-                            }
-                        }
+                    val sampler = textures.shader(src?.let(inst::image)?.let(textures::bitmap) ?: CLEAR_PIXEL)
                     // The name was found by a regex, which also matches one in a comment: one the code doesn't declare throws.
                     try {
                         shader.setInputShader(name, sampler)

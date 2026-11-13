@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Spacer
@@ -49,7 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -390,7 +391,7 @@ private fun StoreList(
 private fun listed(
     market: Market,
     faces: Market?,
-): List<Listed> = market.entries.map { Listed(market, it) } + faces?.entries.orEmpty().map { Listed(faces!!, it) }
+): List<Listed> = market.entries.map { Listed(market, it) } + faces?.let { f -> f.entries.map { Listed(f, it) } }.orEmpty()
 
 /** The entries [filter]'s tab and search leave of [market]'s and [faces]', in the order the grid shows them. */
 private fun shownEntries(
@@ -403,7 +404,7 @@ private fun shownEntries(
     return listed(market, faces)
         .filter { (m, e) ->
             when (filter.tab) {
-                // Faces have their row above the grid, until a search looks through everything.
+                // Faces have their own tab, until a search looks through everything.
                 ALL -> m === market || q.isNotEmpty()
                 NEW -> e.new
                 INSTALLED -> m.installedVersion(e) != null
@@ -514,22 +515,27 @@ private fun Modifier.runningLine(
     radius: Dp,
 ): Modifier {
     val at = rememberInfiniteTransition(label = "running line").animateFloat(0f, 1f, infiniteRepeatable(tween(RUNNING_LINE_MS, easing = LinearEasing)), label = "running line")
-    return drawWithContent {
-        drawContent()
+    // The frame is measured once per size and shape; each frame only cuts the line out of it.
+    return drawWithCache {
         // A little thicker than the frame and inside it, its outer edge on the frame's.
         val w = 1.5.dp.toPx()
         val inner = Size(size.width - w, size.height - w)
-        val frame = Path().apply { addOutline(LauncherStyle.shape(radius).createOutline(inner, layoutDirection, this@drawWithContent)) }
+        val frame = Path().apply { addOutline(LauncherStyle.shape(radius).createOutline(inner, layoutDirection, this@drawWithCache)) }
         frame.translate(Offset(w / 2, w / 2))
         val measure = PathMeasure().apply { setPath(frame, false) }
         val length = measure.length
-        // Read only here, so each frame redraws the line and recomposes nothing.
-        val start = at.value * length
-        val end = start + length / 4
+        val stroke = Stroke(w)
         val line = Path()
-        measure.getSegment(start, minOf(end, length), line, true)
-        if (end > length) measure.getSegment(0f, end - length, line, true)
-        drawPath(line, color, style = Stroke(w))
+        onDrawWithContent {
+            drawContent()
+            // Read only here, so each frame redraws the line and recomposes nothing.
+            val start = at.value * length
+            val end = start + length / 4
+            line.reset()
+            measure.getSegment(start, minOf(end, length), line, true)
+            if (end > length) measure.getSegment(0f, end - length, line, true)
+            drawPath(line, color, style = stroke)
+        }
     }
 }
 
@@ -596,9 +602,16 @@ private fun rememberCardPreview(
     market: Market,
     e: CatalogEntry,
     theme: String?,
+    /** As a portrait screenshot, [FullScreenPreviewTop] of its width high, for the full screen tab. */
+    fullScreen: Boolean = false,
 ): ImageBitmap? {
-    val (w, h) = with(LocalDensity.current) { CardPreviewWidth.roundToPx() to CardPreviewHeight.roundToPx() }
-    val top = if (market.kind == OwlKind.Widget) null else CardPreviewHeight / CardPreviewMinWidth
+    val density = LocalDensity.current
+    val w = with(density) { CardPreviewWidth.roundToPx() }
+    val (h, top) =
+        when {
+            fullScreen -> (w * FullScreenPreviewTop).toInt() to FullScreenPreviewTop
+            else -> with(density) { CardPreviewHeight.roundToPx() } to (if (market.kind == OwlKind.Widget) null else CardPreviewHeight / CardPreviewMinWidth)
+        }
     val preview by produceState<ImageBitmap?>(null, e.previewFor(theme), w, h) { value = market.thumbnail(e, theme, w, h, top) }
     return preview
 }
@@ -618,14 +631,7 @@ private fun Card(
     onOpen: () -> Unit,
 ) {
     val preview = rememberCardPreview(market, e, theme)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .frame(1.dp, if (selected) Palette.accent else Palette.border, radius = 12.dp)
-            .clickable(onClick = onOpen)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
+    CardFrame(selected, onOpen) {
         Box(Modifier.fillMaxWidth().height(CardPreviewHeight), contentAlignment = Alignment.Center) {
             if (preview != null && market.kind != OwlKind.Widget) {
                 // A whole phone screen would be a sliver this high: its top, as wide as the card, reads as the app or face.
@@ -638,21 +644,49 @@ private fun Card(
                 }
             }
         }
-        val (status, color) = cardStatus(market, e, linux)
         // An app's icon goes before its name and status, as in the drawer; widgets have none.
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (e.icon != null || e.iconFile != null) {
                 val icon = rememberIcon(market, e, CardIconSize)
                 Box(Modifier.size(CardIconSize)) { icon?.let { Image(it, null, Modifier.fillMaxSize()) } }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    BasicText(e.name, Modifier.weight(1f, fill = false), style = Mono.copy(fontSize = TextSize.Body), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (e.new) NewBadge()
-                }
-                BasicText(status, style = Mono.copy(color = color, fontSize = TextSize.Small), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+            CardLabel(market, e, linux, Modifier.weight(1f))
         }
+    }
+}
+
+/** A grid cell's frame, accented while [selected], with [content] in a column. */
+@Composable
+private fun CardFrame(
+    selected: Boolean,
+    onOpen: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) = Column(
+    Modifier
+        .fillMaxWidth()
+        .frame(1.dp, if (selected) Palette.accent else Palette.border, radius = 12.dp)
+        .clickable(onClick = onOpen)
+        .padding(8.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+    content = content,
+)
+
+/** A card's name, marked when it's new, and its [cardStatus] under it. */
+@Composable
+private fun CardLabel(
+    market: Market,
+    e: CatalogEntry,
+    linux: Boolean,
+    modifier: Modifier = Modifier,
+    shape: Boolean = true,
+) {
+    val (status, color) = cardStatus(market, e, linux, shape)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BasicText(e.name, Modifier.weight(1f, fill = false), style = Mono.copy(fontSize = TextSize.Body), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (e.new) NewBadge()
+        }
+        BasicText(status, style = Mono.copy(color = color, fontSize = TextSize.Small), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -689,29 +723,14 @@ private fun FullScreenCard(
     selected: Boolean,
     onOpen: () -> Unit,
 ) {
-    // As wide as the widest cell, the screen's top [FullScreenPreviewTop] of its width high.
-    val w = with(LocalDensity.current) { CardPreviewWidth.roundToPx() }
-    val h = (w * FullScreenPreviewTop).toInt()
-    val preview by produceState<ImageBitmap?>(null, e.previewFor(theme), w, h) { value = market.thumbnail(e, theme, w, h, FullScreenPreviewTop) }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .frame(1.dp, if (selected) Palette.accent else Palette.border, radius = 12.dp)
-            .clickable(onClick = onOpen)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
+    val preview = rememberCardPreview(market, e, theme, fullScreen = true)
+    CardFrame(selected, onOpen) {
         Box(Modifier.fillMaxWidth().aspectRatio(1 / FullScreenPreviewTop).clip(RoundedCornerShape(6.dp)).background(Palette.surface), contentAlignment = Alignment.Center) {
             preview?.let { Image(it, null, Modifier.fillMaxSize(), alignment = Alignment.TopCenter, contentScale = ContentScale.FillWidth) }
                 ?: BasicText(e.name, style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small))
         }
         // The tab says they're full screen, so their status leaves it out.
-        val (status, color) = cardStatus(market, e, linux, shape = false)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            BasicText(e.name, Modifier.weight(1f, fill = false), style = Mono.copy(fontSize = TextSize.Body), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (e.new) NewBadge()
-        }
-        BasicText(status, style = Mono.copy(color = color, fontSize = TextSize.Small), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        CardLabel(market, e, linux, shape = false)
     }
 }
 
