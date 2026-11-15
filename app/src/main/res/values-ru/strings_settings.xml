@@ -13,6 +13,7 @@
     </plurals>
     <string name="settings_gestures">жесты</string>
     <string name="settings_gestures_subtitle">вверх: %1$s · вниз: %2$s</string>
+    <string name="settings_gestures_subtitle_double_tap">" · двойное касание: %1$s"</string>
     <string name="settings_language">язык</string>
     <string name="settings_language_phone">язык телефона</string>
     <string name="settings_linux">linux</string>

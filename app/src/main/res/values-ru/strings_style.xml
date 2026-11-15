@@ -25,6 +25,7 @@
     <string name="style_hidden">не показывать</string>
     <string name="style_empty_page_left">пустая страница слева</string>
     <string name="style_empty_page_right">пустая страница справа</string>
+    <string name="style_empty_page_hint">заметка о пустой странице</string>
     <string name="style_columns">столбцы</string>
     <string name="style_pages">страницы</string>
     <string name="style_pages_one">одна</string>
@@ -131,6 +132,14 @@
     <string name="gestures_title">жесты</string>
     <string name="gestures_swipe_up">свайп вверх</string>
     <string name="gestures_swipe_down">свайп вниз</string>
+    <string name="gestures_double_tap">двойное касание</string>
+    <string name="gestures_action_notifications">уведомления</string>
+    <string name="gestures_action_settings">настройки</string>
+    <string name="gestures_action_style">оформление</string>
+    <string name="gestures_action_store">магазин виджетов</string>
+    <string name="gestures_action_agents">агенты программирования</string>
+    <string name="gestures_action_terminal">терминал</string>
+    <string name="gestures_action_lock">блокировка экрана</string>
     <string name="gestures_nothing">ничего</string>
     <string name="gestures_has_errors">%1$s (с ошибками)</string>
     <string name="gestures_missing">%1$s (нет файла)</string>

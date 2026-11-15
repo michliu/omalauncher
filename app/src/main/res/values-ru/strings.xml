@@ -10,4 +10,5 @@
     <string name="activity_voice">Голос</string>
     <string name="activity_settings">Настройки</string>
     <string name="notification_listener">Виджеты Omalauncher</string>
+    <string name="lock_service_description">Блокирует экран, когда на главном экране используется жест блокировки экрана. Omalauncher ничего не читает через эту службу.</string>
 </resources>
