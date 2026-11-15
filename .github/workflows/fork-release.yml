@@ -61,7 +61,7 @@ jobs:
           EOF
 
       - name: Test and build
-        run: ./gradlew :owl:test :app:testDebugUnitTest :app:assembleRelease
+        run: ./gradlew :owl:test :app:testFossDebugUnitTest :app:assembleFossRelease
 
       - name: Release
         env:
@@ -69,7 +69,7 @@ jobs:
         run: |
           version="${{ steps.version.outputs.version }}"
           apk="omalauncher-$version.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          cp app/build/outputs/apk/foss/release/app-foss-release.apk "$apk"
           sha256sum "$apk" > SHA256SUMS
           gh release create "$version" "$apk" SHA256SUMS --target "$GITHUB_SHA" --title "$version" \
             --notes "Built from $GITHUB_SHA on main."
