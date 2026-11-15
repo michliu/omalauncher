@@ -55,6 +55,7 @@ import dev.omalauncher.ui.ReadingWidth
 import dev.omalauncher.ui.Symbol
 import dev.omalauncher.ui.TextSize
 import dev.omalauncher.ui.card
+import dev.omalauncher.ui.settings.SettingsPage
 import kotlin.math.absoluteValue
 import kotlin.math.sign
 
