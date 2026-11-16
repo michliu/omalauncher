@@ -179,7 +179,9 @@ Pinned versions: `ThemeStore.OMARCHY_REF` (the Omarchy commit) and
 download the new themes on its next start (`ThemeStore.ensureRelease`, with or
 without Linux); rerun `scripts/fetch-theme-colors.sh` with it, since first run
 fetches only the picked theme's colors and first background by the names that
-script bundles. Changing the second updates Linux installs through the steps
+script bundles, and the download fetches the files it lists in
+`assets/omarchy-files.txt` one by one (about 80 MB, where the repo's tarball
+is 180), keeping what arrived across interrupted attempts. Changing the second updates Linux installs through the steps
 above.
 
 Guest processes die with the app (`--kill-on-exit`), so the Wayland protocol,
@@ -190,7 +192,8 @@ the socket and the guest environment carry no state across an update.
 Each recipe lists what a complete change touches. Tests go next to the code
 they cover, in `owl/src/test` or `app/src/test`.
 
-- **A coding agent**: an `Agent` entry in `linux/Agents.kt`; its description
+- **A coding agent**: an `Agent` entry in `linux/Agents.kt` (with an
+  `OwnInstaller` when mise has no package for it, like Hermes); its description
   as `linux_agent_<id>` in every `strings_linux.xml`; an SVG in `art/icons/`,
   turned into PNGs by `scripts/make-icons.sh`; an `activity-alias` in
   `AndroidManifest.xml` so its window gets its own icon and label; a case in
