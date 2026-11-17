@@ -133,6 +133,15 @@
     <string name="linux_cpu_pinning_title">быстрые системные вызовы</string>
     <string name="linux_cpu_pinning_on">вкл · Linux работает на одном быстром ядре процессора · для программ, запущенных после включения</string>
     <string name="linux_cpu_pinning_off">выкл · для программ, запущенных после выключения</string>
+    <string name="linux_session_title">сеанс</string>
+    <string name="linux_session_running">работает · Linux-приложения, терминалы и агенты доступны</string>
+    <string name="linux_session_starting">запускается…</string>
+    <string name="linux_session_stopped">остановлен · ничего не работает и ничего не удаляется · остаётся остановленным после перезапуска</string>
+    <string name="linux_stop">остановить</string>
+    <string name="linux_start">запустить</string>
+    <string name="linux_stop_ask">остановить linux?</string>
+    <string name="linux_stop_body">Закрывает Linux-приложения, терминалы и ИИ-агентов и прерывает их работу. Ничего не удаляется. Виджеты и приложения, которым нужен Linux, ждут, пока вы снова не запустите его здесь.</string>
+    <string name="linux_stop_confirm">остановить</string>
 
     <string name="linux_notification_channel">Сеанс Linux</string>
     <string name="linux_notify_channel">Агенты и скрипты</string>
@@ -141,6 +150,12 @@
     <string name="linux_notification_failed">Установка Linux остановлена · откройте настройки › linux, чтобы повторить</string>
     <string name="linux_notification_removing">Удаление Linux</string>
     <string name="linux_notification_running">Сеанс Linux запущен</string>
+
+    <!-- Another Android app shares a file, or text, to Linux: the card while it's copied into ~/Downloads, and how it went. -->
+    <string name="share_in_saving">сохранение в linux…</string>
+    <string name="share_in_saved">сохранено в ~/Downloads</string>
+    <string name="share_in_failed">не удалось сохранить в linux</string>
+    <string name="share_in_no_linux">linux ещё не настроен</string>
 
     <string name="packages_title">пакеты</string>
     <string name="packages_search">поиск пакетов</string>

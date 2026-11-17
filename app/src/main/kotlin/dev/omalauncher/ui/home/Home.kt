@@ -362,7 +362,7 @@ fun HomeScreen(
     val side = homeSide()
     val focusManager = LocalFocusManager.current
     val turned = homeTurned()
-    val sideRoom = sideWidth()
+    val sideRoom = sideWidth(runtime)
     val barRoom = with(density) { state.barHeight.takeIf { it > 0 }?.toDp() ?: (PromptBarHeight + HomeGap + EdgeGap) }
     LaunchedEffect(extraKeys) { if (!extraKeys) terminals.extraKeys = null }
     Box(
@@ -510,7 +510,7 @@ fun HomeScreen(
             render = { item, placed, selected -> HomeTile(item, placed, selected, runtime, state, arrange, turned, linuxState) },
             // The recent apps strip's room: kept while it's empty, so tiles don't reflow when it fills, and still
             // home's to swipe and long-press there until it does.
-            room = if (LauncherStyle.recentApps && side == null) RecentStripHeight else 0.dp,
+            room = if (LauncherStyle.recentApps && side == null) stripRoom(runtime, vertical = false) else 0.dp,
             turned = turned,
             side = side,
             per = per,
@@ -800,6 +800,9 @@ enum class LinuxPhase {
     Installing,
     Installed,
 
+    /** Installed, but stopped in settings; what needs it sends the user there to start it. */
+    Stopped,
+
     /** Not installed, failed or being removed. */
     Absent,
 }
@@ -810,8 +813,11 @@ fun linuxPhase(runtime: Runtime): LinuxPhase {
     val bootstrap = runtime.bootstrap
     val phases = remember(bootstrap) { bootstrap.state.phases() }
     val initial = remember(bootstrap) { linuxPhase(bootstrap.state.value) }
-    return phases.collectAsState(initial).value
+    return phases.collectAsState(initial).value.stopped(runtime.linuxStopped)
 }
+
+/** [LinuxPhase.Stopped] for an installed Linux that was stopped; any other phase as it is. */
+internal fun LinuxPhase.stopped(stopped: Boolean) = if (stopped && this == LinuxPhase.Installed) LinuxPhase.Stopped else this
 
 /** These states' phases, each once until it changes. */
 internal fun Flow<LinuxState>.phases(): Flow<LinuxPhase> = map(::linuxPhase).distinctUntilChanged()
