@@ -10,4 +10,5 @@
     <string name="activity_voice">Voice</string>
     <string name="activity_settings">設定</string>
     <string name="notification_listener">Omalauncher ウィジェット</string>
+    <string name="lock_service_description">ホーム画面で画面ロックのジェスチャーを使ったときに画面をロックします。Omalauncher はこのサービスを通じて何も読み取りません。</string>
 </resources>

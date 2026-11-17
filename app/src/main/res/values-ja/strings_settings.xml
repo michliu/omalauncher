@@ -10,6 +10,7 @@
     </plurals>
     <string name="settings_gestures">ジェスチャー</string>
     <string name="settings_gestures_subtitle">上：%1$s · 下：%2$s</string>
+    <string name="settings_gestures_subtitle_double_tap">" · ダブルタップ：%1$s"</string>
     <string name="settings_language">言語</string>
     <string name="settings_language_phone">スマートフォンの言語</string>
     <string name="settings_linux">linux</string>

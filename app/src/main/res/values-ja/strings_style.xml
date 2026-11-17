@@ -25,6 +25,7 @@
     <string name="style_hidden">非表示</string>
     <string name="style_empty_page_left">左の空ページ</string>
     <string name="style_empty_page_right">右の空ページ</string>
+    <string name="style_empty_page_hint">空ページのメモ</string>
     <string name="style_columns">列数</string>
     <string name="style_pages">ページ</string>
     <string name="style_pages_one">1 ページ</string>
@@ -133,6 +134,14 @@
     <string name="gestures_title">ジェスチャー</string>
     <string name="gestures_swipe_up">上にスワイプ</string>
     <string name="gestures_swipe_down">下にスワイプ</string>
+    <string name="gestures_double_tap">ダブルタップ</string>
+    <string name="gestures_action_notifications">通知</string>
+    <string name="gestures_action_settings">設定</string>
+    <string name="gestures_action_style">スタイル</string>
+    <string name="gestures_action_store">ウィジェットストア</string>
+    <string name="gestures_action_agents">コーディングエージェント</string>
+    <string name="gestures_action_terminal">ターミナル</string>
+    <string name="gestures_action_lock">画面ロック</string>
     <string name="gestures_nothing">なし</string>
     <string name="gestures_has_errors">%1$s（エラーあり）</string>
     <string name="gestures_missing">%1$s（ファイルなし）</string>
