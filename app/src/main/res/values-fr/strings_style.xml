@@ -145,7 +145,7 @@
     <string name="gestures_action_store">boutique de widgets</string>
     <string name="gestures_action_agents">agents de code</string>
     <string name="gestures_action_terminal">terminal</string>
-    <string name="gestures_action_lock">verrouillage de l'écran</string>
+    <string name="gestures_action_lock">verrouillage de l’écran</string>
     <string name="gestures_nothing">rien</string>
     <string name="gestures_has_errors">%1$s (a des erreurs)</string>
     <string name="gestures_missing">%1$s (manquant)</string>
