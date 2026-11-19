@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="store_title">магазин</string>
+    <string name="store_widgets_title">магазин виджетов</string>
+    <string name="store_apps_title">магазин приложений</string>
+    <string name="store_featured">рекомендуемые</string>
 
     <string name="store_kind_widgets">виджеты</string>
     <string name="store_kind_faces">полноэкранные виджеты</string>
@@ -156,7 +158,16 @@
     <string name="store_theme_search">поиск: темы (%1$d)</string>
     <string name="store_theme_header">созданы сообществом, список на omarchy.org/themes · устанавливаются с GitHub</string>
     <string name="store_theme_in_use">✓ используется</string>
-    <string name="store_theme_install_confirm">установить %1$s?</string>
+    <string name="store_theme_light">светлая</string>
+    <string name="store_theme_dark">тёмная</string>
+    <plurals name="store_theme_wallpapers">
+        <item quantity="one">обои: %d</item>
+        <item quantity="few">обои: %d</item>
+        <item quantity="many">обои: %d</item>
+        <item quantity="other">обои: %d</item>
+    </plurals>
+    <string name="store_theme_use">использовать</string>
+    <string name="store_theme_github">GitHub</string>
     <string name="store_theme_install_message">Из %1$s. Linux получит цвета и обои темы, но не скрипты и не настройки терминала.</string>
     <string name="store_theme_install_message_replaces">Из %1$s. Linux получит цвета и обои темы, но не скрипты и не настройки терминала.\n\nОна заменит вашу тему %2$s.</string>
     <string name="store_theme_install_message_over">Из %1$s. Linux получит цвета и обои темы, но не скрипты и не настройки терминала.\n\nОна заменит тему Omarchy %2$s; если удалить новую, тема Omarchy вернётся.</string>

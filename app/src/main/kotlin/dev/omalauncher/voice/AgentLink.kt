@@ -1,5 +1,6 @@
 package dev.omalauncher.voice
 
+import dev.omalauncher.linux.Proot
 import dev.omalauncher.linux.shellQuote
 import dev.omalauncher.widgets.WidgetEngine
 import org.json.JSONArray
@@ -23,6 +24,9 @@ sealed interface LinkEvent {
         val text: String,
     ) : LinkEvent
 
+    /** It's thinking, which isn't shown or said: only that it's at work. */
+    data object Thinking : LinkEvent
+
     /** It started using a tool; what for comes with the [Step]. */
     data object Working : LinkEvent
 
@@ -39,6 +43,13 @@ sealed interface LinkEvent {
         val act: Act,
         val detail: String,
         val key: String,
+    ) : LinkEvent
+
+    /** It asks the user something: [choices] to pick from, though any answer goes; [id] goes back in [AgentLink.answerQuestion]. */
+    data class Question(
+        val id: String,
+        val question: String,
+        val choices: List<String>,
     ) : LinkEvent
 
     /** A prompt is answered: [error] when it failed (empty when it didn't say why), [cancelled] when it was stopped. */
@@ -88,6 +99,12 @@ abstract class AgentLink(
         instead: String?,
     ): Boolean
 
+    /** Answers [LinkEvent.Question] [id] with what the user said, or skips it (null). */
+    open fun answerQuestion(
+        id: String,
+        answer: String?,
+    ) {}
+
     abstract fun read(line: String): List<LinkEvent>
 
     /** A prompt sent mid-turn may be folded into the turn, with no [LinkEvent.Done] of its own. */
@@ -112,9 +129,6 @@ const val VOICE_PROMPT =
         "only when it could be quite different things, rather than searching for words that were misheard. When " +
         "the user turns down something you asked to do, don't do it another way: say what you'd do instead or ask."
 
-/** Where agents work in Linux, unless one needs a folder of its own. */
-const val GUEST_HOME = "/root"
-
 /** The agents that can talk, by bin, with the link that talks to each. */
 val VOICE_LINKS: Map<String, (write: (String) -> Unit) -> AgentLink> =
     mapOf(
@@ -123,7 +137,7 @@ val VOICE_LINKS: Map<String, (write: (String) -> Unit) -> AgentLink> =
         "grok" to { w -> AcpLink(w, "grok agent stdio") },
         // OpenCode snapshots its folder with git before every turn, and all of home took minutes before its first
         // word; the widgets are what voice is mostly for.
-        "opencode" to { w -> AcpLink(w, "opencode acp", "$GUEST_HOME/${WidgetEngine.GUEST_DIR}") },
+        "opencode" to { w -> AcpLink(w, "opencode acp", "${Proot.GUEST_HOME}/${WidgetEngine.GUEST_DIR}") },
         "copilot" to { w -> AcpLink(w, "copilot --acp") },
         "kimi" to { w -> AcpLink(w, "kimi acp") },
         "cursor-agent" to { w -> AcpLink(w, "cursor-agent acp") },
@@ -133,7 +147,7 @@ val VOICE_LINKS: Map<String, (write: (String) -> Unit) -> AgentLink> =
         // Kiro can't load a session, so a conversation picked up later starts a new one.
         "kiro-cli" to { w -> AcpLink(w, "kiro-cli acp") },
         // Kilo is OpenCode underneath, with its snapshots: the widgets, as for OpenCode.
-        "kilo" to { w -> AcpLink(w, "kilo acp", "$GUEST_HOME/${WidgetEngine.GUEST_DIR}") },
+        "kilo" to { w -> AcpLink(w, "kilo acp", "${Proot.GUEST_HOME}/${WidgetEngine.GUEST_DIR}") },
         "devin" to { w -> AcpLink(w, "devin acp") },
         "commandcode" to { w -> AcpLink(w, "commandcode acp") },
         "agy" to { w -> AcpLink(w, "agy acp") },
@@ -210,7 +224,10 @@ class ClaudeLink(
                 val e = ev.optJSONObject("event") ?: return out
                 when (e.optString("type")) {
                     "content_block_delta" ->
-                        e.optJSONObject("delta")?.takeIf { it.optString("type") == "text_delta" }?.let { out += LinkEvent.Text(it.optString("text")) }
+                        when (e.optJSONObject("delta")?.optString("type")) {
+                            "text_delta" -> out += LinkEvent.Text(e.getJSONObject("delta").optString("text"))
+                            "thinking_delta" -> out += LinkEvent.Thinking
+                        }
                     "content_block_start" ->
                         if (e.optJSONObject("content_block")?.optString("type") == "tool_use") out += LinkEvent.Working
                 }
@@ -342,20 +359,24 @@ abstract class RpcLink(
 /**
  * An agent over ACP, the Agent Client Protocol: JSON-RPC on stdio. One session; prompts go one at a time, a
  * later one waiting for the one in flight. session/update notifications carry the reply and tool calls,
- * session/request_permission asks before a tool, session/load continues a conversation (its replay of the old
- * one isn't shown). ACP has no system prompt, so the first prompt of a conversation says how to talk.
+ * session/request_permission asks before a tool, elicitation/create asks the user a question (Hermes's clarify
+ * tool), session/load continues a conversation (its replay of the old one isn't shown). ACP has no system prompt,
+ * so the first prompt of a conversation says how to talk.
  */
 class AcpLink(
     write: (String) -> Unit,
     /** The guest command that serves ACP on stdio, such as `grok agent stdio` or `kimi acp`. */
     private val serve: String,
     /** Where its sessions work. */
-    private val cwd: String = GUEST_HOME,
+    private val cwd: String = Proot.GUEST_HOME,
 ) : RpcLink(write, jsonrpc = true) {
     private var session: String? = null
     private var loading = false
     private var primed = false
     private val asked = HashMap<String, Pair<Any, JSONArray>>()
+
+    /** Questions waiting for an answer: the request, the form's one field, and whether it takes a list. */
+    private val questions = HashMap<String, Triple<Any, String, Boolean>>()
 
     override fun command(resume: String?) = "exec $serve"
 
@@ -363,7 +384,9 @@ class AcpLink(
         session = resume
         primed = resume != null
         val fs = json("readTextFile" to false, "writeTextFile" to false)
-        call("initialize", json("protocolVersion" to 1, "clientCapabilities" to json("fs" to fs, "terminal" to false))) { _, error ->
+        // Forms, for questions: without them Hermes asks as a permission request, its choices as "allow" options.
+        val capabilities = json("fs" to fs, "terminal" to false, "elicitation" to json("form" to JSONObject()))
+        call("initialize", json("protocolVersion" to 1, "clientCapabilities" to capabilities)) { _, error ->
             if (error != null) return@call listOf(LinkEvent.Failed(reason(error)))
             val id = session
             if (id != null) {
@@ -430,6 +453,7 @@ class AcpLink(
         when (method) {
             "session/update" -> if (loading) emptyList() else update(params.optJSONObject("update") ?: JSONObject())
             "session/request_permission" -> if (id == null) emptyList() else listOf(permission(id, params))
+            "elicitation/create" -> if (id == null) emptyList() else question(id, params)
             // fs/… or terminal/…, which we said we don't offer; notifications (_x.ai/…) need nothing.
             else -> null
         }
@@ -442,6 +466,7 @@ class AcpLink(
                     ?.takeUnless { NOTICE.matches(it) }
                     ?.let { listOf(LinkEvent.Text(it)) } ?: emptyList()
             "tool_call" -> listOf(LinkEvent.Working, LinkEvent.Step(Steps.acpLabel(u), Steps.acpPaths(u).filter(::isImage)))
+            "agent_thought_chunk" -> listOf(LinkEvent.Thinking)
             else -> emptyList()
         }
 
@@ -455,6 +480,44 @@ class AcpLink(
         val raw = call.optJSONObject("rawInput") ?: JSONObject()
         val key = if (call.optString("kind") == "execute" && raw.has("command")) Steps.commandKey(raw.optString("command")) else "acp:" + call.optString("kind")
         return LinkEvent.Ask(id, Steps.acpLabel(call), raw.firstString("command", "path", "file_path", "url").ifEmpty { Steps.acpPaths(call).firstOrNull().orEmpty() }, key)
+    }
+
+    /**
+     * A form as a question, when it's one answer in words (Hermes: `answer`, a string, its choices as an enum, or a
+     * list of them for several). Anything else, more fields or a link to open, isn't something to say: declined.
+     */
+    private fun question(
+        rpcId: Any,
+        params: JSONObject,
+    ): List<LinkEvent> {
+        val fields = params.optJSONObject("requestedSchema")?.optJSONObject("properties")
+        val name = fields?.keys()?.asSequence()?.singleOrNull()
+        val field = name?.let { fields.optJSONObject(it) }
+        val many = field?.optString("type") == "array"
+        val value = if (many) field?.optJSONObject("items") else field
+        if (params.optString("mode", "form") != "form" || name == null || value?.optString("type") != "string") {
+            reply(rpcId, json("action" to "decline"))
+            return emptyList()
+        }
+        val id = "q$rpcId"
+        questions[id] = Triple(rpcId, name, many)
+        val choices = (0 until (value.optJSONArray("enum")?.length() ?: 0)).map { value.getJSONArray("enum").optString(it) }
+        return listOf(LinkEvent.Question(id, params.optString("message"), choices))
+    }
+
+    /** The user's words go back as they are, even when they're none of the choices: Hermes takes any answer. */
+    override fun answerQuestion(
+        id: String,
+        answer: String?,
+    ) {
+        val (rpcId, field, many) = questions.remove(id) ?: return
+        val result =
+            if (answer == null) {
+                json("action" to "decline")
+            } else {
+                json("action" to "accept", "content" to json(field to if (many) JSONArray().put(answer) else answer))
+            }
+        reply(rpcId, result)
     }
 
     companion object {
@@ -480,7 +543,7 @@ class AcpLink(
  */
 class CodexLink(
     write: (String) -> Unit,
-    private val cwd: String = GUEST_HOME,
+    private val cwd: String = Proot.GUEST_HOME,
 ) : RpcLink(write, jsonrpc = false) {
     override val instructed = true
 
@@ -769,7 +832,7 @@ class PiLink(
             }
             "tool_execution_start" -> {
                 val args = ev.optJSONObject("args") ?: JSONObject()
-                val path = args.optString("path").let { if (it.isEmpty() || it.startsWith('/')) it else "$GUEST_HOME/$it" }
+                val path = args.optString("path").let { if (it.isEmpty() || it.startsWith('/')) it else "${Proot.GUEST_HOME}/$it" }
                 val images = if (ev.optString("toolName") == "read" && isImage(path)) listOf(path) else emptyList()
                 listOf(LinkEvent.Working, LinkEvent.Step(act(ev.optString("toolName"), args), images))
             }

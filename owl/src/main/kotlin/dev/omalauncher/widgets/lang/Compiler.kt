@@ -27,7 +27,7 @@ class Compiler private constructor(
          * instead of failing on what they don't know. Bump it with every
          * addition a widget could depend on: nodes, properties, builtins.
          */
-        const val LEVEL = 24
+        const val LEVEL = 25
         private const val MAX_ASSET_BYTES = 2 shl 20
 
         /** Pages as far out as a file can ask for; past Int's range, the pages either side of them would wrap. */
@@ -313,7 +313,7 @@ class Compiler private constructor(
         if (level > LEVEL) fail("this widget needs owl $level; the launcher supports up to $LEVEL, so update the launcher", levelField!!.pos)
         if (body.animations.isNotEmpty()) fail("animate belongs inside a node", body.animations[0].pos)
         // An app, a panel, keys and the strip check their own (onBack, onSubmit).
-        if (ast.kind != OwlKind.App && ast.kind != OwlKind.Panel && ast.kind != OwlKind.Keybar && ast.kind != OwlKind.Strip) {
+        if (ast.kind == OwlKind.Widget || isFace) {
             for (h in body.handlers) if (h.name != "onTap") fail("a ${ast.kind.word} only takes onTap at the top level", h.pos)
         }
 
@@ -619,13 +619,10 @@ class Compiler private constructor(
     }
 
     /**
-     * The extra keys: the bar over the soft keyboard while typing in a terminal, as tall as its nodes. The launcher
-     * puts it there, and keeps it from taking focus, so the keyboard stays up; `pressKey(...)` and `latch(...)` reach the
-     * terminal.
-     */
-    /**
-     * A bar the launcher puts in a place of its own, as tall as its nodes: the extra keys over the keyboard (`keybar`),
-     * or the strip of apps above home's prompt bar (`strip`, owl 24). Its nodes are the whole file.
+     * A bar the launcher puts in a place of its own, as tall as its nodes: the extra keys over the soft keyboard while
+     * typing in a terminal (`keybar`), or the strip of apps above home's prompt bar (`strip`, owl 24). Its nodes are the
+     * whole file. The launcher keeps the key bar from taking focus, so the keyboard stays up; `pressKey(...)` and
+     * `latch(...)` reach the terminal.
      */
     private fun bar(
         body: Body,
@@ -1555,7 +1552,8 @@ class Compiler private constructor(
                 if (call.name in ASKS && (args.getOrNull(0)?.const as? Str)?.v == "request") {
                     val ask = "${call.name}(\"request\")"
                     // Asking for what nothing reads: what it allows is only in the source.
-                    if (androidSources(call.name).isEmpty()) fail("$ask asks for what source x = android.${call.name} reads: declare it, then x.granted says whether it's allowed", call.pos)
+                    val granted = if (call.name == "volume") "x.output.granted" else "x.granted"
+                    if (androidSources(call.name).isEmpty()) fail("$ask asks for what source x = android.${call.name} reads: declare it, then $granted says whether it's allowed", call.pos)
                     // The permission dialog covers the widget before the finger lifts, and comes only for a touch.
                     if (handlerName == "onPress" || handlerName == "onRelease") fail("$ask opens Android's permission dialog over the widget before the finger lifts: put it in onTap", call.pos)
                     if (TriggerKind.entries.any { it.word == handlerName }) fail("$ask works in onTap, not in a trigger: Android asks only when you tap", call.pos)

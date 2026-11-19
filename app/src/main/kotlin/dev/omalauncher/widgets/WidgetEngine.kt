@@ -128,7 +128,7 @@ class WidgetEngine(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val services = WidgetServices(context, proot, runtime, scope)
 
-    /** Opens launcher screens ("style" or "themes", "agents", "drawer"); set by the UI. */
+    /** Opens launcher screens ("style" or "themes", "agents", "store" or "store:apps", "drawer"); set by the UI. */
     var launcherAction by services::launcherAction
 
     /** What the drawer's long-press menu does, for appAction(...); set by the UI. */
@@ -139,6 +139,9 @@ class WidgetEngine(
 
     /** android.airpods and airpods(...), which ask the activity in front for Bluetooth. */
     val airpods get() = services.airpods
+
+    /** android.volume and volume(...), whose "request" asks the activity in front for Bluetooth. */
+    val volume get() = services.volume
 
     /** android.media, and android.modes' Do Not Disturb switch: both need notification access. */
     val media get() = services.media
@@ -856,7 +859,7 @@ class WidgetEngine(
             return
         }
         val inst = instance(spec)!!
-        if (program.kind == OwlKind.App || program.kind == OwlKind.Panel || program.kind == OwlKind.Keybar || program.kind == OwlKind.Strip) return previewView(spec, inst, hash)
+        if (!onHome(spec)) return previewView(spec, inst, hash)
         val cells = tileCells(spec)
         val (w, h) = if (spec.isFace) layout.pagePx(context.resources.displayMetrics) else layout.tilePx(cells, context.resources.displayMetrics)
         previewing += name
@@ -968,7 +971,7 @@ class WidgetEngine(
                 for (theme in themes) {
                     Palette.apply(theme.colors)
                     val out = File(dir, "${theme.name}/$name${if (n > 0) ".${n + 1}" else ""}.png")
-                    if (spec.kind == OwlKind.App || spec.kind == OwlKind.Panel || spec.kind == OwlKind.Keybar || spec.kind == OwlKind.Strip) {
+                    if (!onHome(spec)) {
                         previews.renderScreen(spec, inst, dm.widthPixels, dm.heightPixels, out, ready)
                     } else {
                         previews.render(spec, inst, shownCells(cells), w, h, out, ready)

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="voice_listening">ouvindo</string>
+    <string name="voice_listening">ouvindo · toque para enviar</string>
     <string name="voice_listening_working">ouvindo · ainda trabalhando</string>
+    <string name="voice_listening_preparing">preparando · você já pode falar</string>
     <string name="voice_starting">iniciando</string>
     <string name="voice_needs_ok">precisa do seu OK · %1$s</string>
     <string name="voice_working">trabalhando · %1$s</string>
@@ -25,6 +26,7 @@
     <string name="voice_message">mensagem para %1$s</string>
     <string name="voice_answer_hint">sim, não, ou o que fazer em vez disso</string>
     <string name="voice_send">enviar</string>
+    <string name="voice_erase">apagar o que você disse</string>
     <string name="voice_stop">parar</string>
     <string name="voice_wants">%1$s quer %2$s</string>
     <string name="voice_allow">permitir</string>
@@ -56,7 +58,6 @@
     <string name="voice_do_tool">usar %1$s</string>
     <string name="voice_do_tool_unknown">usar uma ferramenta</string>
     <string name="voice_say_wants">%1$s quer %2$s. Permitir?</string>
-    <string name="voice_say_moment">Um momento.</string>
     <string name="voice_say_failed">Desculpe, não deu certo.</string>
     <string name="voice_the_agent">o agente</string>
     <string name="voice_note_allow_all">permitindo tudo o que %1$s pedir</string>
@@ -69,6 +70,7 @@
     <string name="voice_nothing_to_say">%1$s respondeu sem dizer nada</string>
     <string name="voice_no_answer">%1$s ainda não respondeu; talvez a cota tenha acabado ou falte fazer login</string>
     <string name="voice_quiet">%1$s está quieto há dois minutos; pare se ele travou</string>
+    <string name="voice_offline">sem internet: %1$s só pode responder quando o celular estiver online</string>
     <string name="voice_failed">falhou</string>
     <string name="voice_retrying">tentando de novo: %1$s</string>
     <string name="voice_voice">voz</string>
@@ -81,4 +83,29 @@
     <string name="voice_tts_settings">configurações de texto para fala</string>
     <string name="voice_no_voice">Ainda não há voz para %1$s neste telefone: baixe uma nas configurações de texto para fala.</string>
     <string name="voice_sample">É assim que as respostas vão soar.</string>
+    <string name="voice_recognition">reconhecimento de voz</string>
+    <string name="voice_recognition_phone">o do telefone</string>
+    <string name="voice_recognition_parakeet">Parakeet, neste telefone</string>
+    <string name="voice_parakeet_about">O Parakeet reconhece a fala no próprio telefone: offline, sem bipes, em 25 idiomas europeus. Um download de %1$s.</string>
+    <string name="voice_parakeet_download">baixar</string>
+    <string name="voice_parakeet_mobile_data">você está usando dados móveis</string>
+    <string name="voice_parakeet_progress">%1$s de %2$s</string>
+    <string name="voice_parakeet_checking">verificando o download…</string>
+    <string name="voice_parakeet_cancel">cancelar</string>
+    <string name="voice_parakeet_delete">excluir Parakeet · %1$s</string>
+    <string name="voice_parakeet_failed">o download parou: %1$s</string>
+    <string name="voice_parakeet_space">espaço insuficiente: faltam %1$s</string>
+    <string name="voice_parakeet_damaged">o download veio corrompido; tente de novo</string>
+    <string name="voice_parakeet_language">O Parakeet não conhece %1$s: o reconhecimento de voz do telefone escuta no lugar dele.</string>
+    <string name="voice_send_after">enviar após uma pausa</string>
+    <string name="voice_send_after_off">não</string>
+    <string name="voice_seconds">%1$d s</string>
+    <string name="voice_needs_answer">precisa da sua resposta · %1$s</string>
+    <string name="voice_your_answer">sua resposta</string>
+    <string name="voice_asks">%1$s pergunta</string>
+    <string name="voice_skip">pular</string>
+    <string name="voice_skipped">pergunta pulada</string>
+    <string name="voice_or_type_answer">ou digite sua própria resposta</string>
+    <string name="voice_or_say_answer">ou toque no círculo e diga sua resposta</string>
+    <string name="voice_say_choices">Opções: %1$s.</string>
 </resources>

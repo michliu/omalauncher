@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="voice_listening">слушаю</string>
+    <string name="voice_listening">слушаю · нажмите, чтобы отправить</string>
     <string name="voice_listening_working">слушаю · агент ещё работает</string>
+    <string name="voice_listening_preparing">подготовка · уже можно говорить</string>
     <string name="voice_starting">запуск</string>
     <string name="voice_needs_ok">ждёт подтверждения · %1$s</string>
     <string name="voice_working">работает · %1$s</string>
@@ -26,6 +27,7 @@
     <string name="voice_message">сообщение для %1$s</string>
     <string name="voice_answer_hint">да, нет или что сделать вместо этого</string>
     <string name="voice_send">отправить</string>
+    <string name="voice_erase">стереть сказанное</string>
     <string name="voice_stop">остановить</string>
     <string name="voice_wants">%1$s хочет %2$s</string>
     <string name="voice_allow">разрешить</string>
@@ -57,7 +59,6 @@
     <string name="voice_do_tool">использовать %1$s</string>
     <string name="voice_do_tool_unknown">использовать инструмент</string>
     <string name="voice_say_wants">%1$s хочет %2$s. Разрешить?</string>
-    <string name="voice_say_moment">Минутку.</string>
     <string name="voice_say_failed">Извините, не получилось.</string>
     <string name="voice_the_agent">агент</string>
     <string name="voice_note_allow_all">всё, что запрашивает %1$s, разрешается</string>
@@ -70,6 +71,7 @@
     <string name="voice_nothing_to_say">%1$s ответил пустым сообщением</string>
     <string name="voice_no_answer">%1$s пока не отвечает; возможно, закончилась квота или не выполнен вход</string>
     <string name="voice_quiet">%1$s молчит уже две минуты; если он завис, остановите его</string>
+    <string name="voice_offline">нет интернета: %1$s сможет ответить, когда телефон будет в сети</string>
     <string name="voice_failed">не удалось</string>
     <string name="voice_retrying">повтор: %1$s</string>
     <string name="voice_voice">голос</string>
@@ -82,4 +84,29 @@
     <string name="voice_tts_settings">настройки синтеза речи</string>
     <string name="voice_no_voice">Для языка «%1$s» на телефоне пока нет голоса: скачайте его в настройках синтеза речи.</string>
     <string name="voice_sample">Так будут звучать ответы.</string>
+    <string name="voice_recognition">распознавание речи</string>
+    <string name="voice_recognition_phone">встроенное в телефон</string>
+    <string name="voice_recognition_parakeet">Parakeet, на этом телефоне</string>
+    <string name="voice_parakeet_about">Parakeet распознаёт речь прямо на телефоне: без интернета, без звуковых сигналов, на 25 европейских языках. Загрузка — %1$s.</string>
+    <string name="voice_parakeet_download">скачать</string>
+    <string name="voice_parakeet_mobile_data">вы используете мобильный интернет</string>
+    <string name="voice_parakeet_progress">%1$s из %2$s</string>
+    <string name="voice_parakeet_checking">проверка загрузки…</string>
+    <string name="voice_parakeet_cancel">отмена</string>
+    <string name="voice_parakeet_delete">удалить Parakeet · %1$s</string>
+    <string name="voice_parakeet_failed">загрузка прервалась: %1$s</string>
+    <string name="voice_parakeet_space">недостаточно места: нужно ещё %1$s</string>
+    <string name="voice_parakeet_damaged">загруженные файлы повреждены; попробуйте ещё раз</string>
+    <string name="voice_parakeet_language">Parakeet не знает язык «%1$s»: вместо него слушает распознавание речи телефона.</string>
+    <string name="voice_send_after">отправлять после паузы</string>
+    <string name="voice_send_after_off">нет</string>
+    <string name="voice_seconds">%1$d с</string>
+    <string name="voice_needs_answer">ждёт ответа · %1$s</string>
+    <string name="voice_your_answer">ваш ответ</string>
+    <string name="voice_asks">%1$s спрашивает</string>
+    <string name="voice_skip">пропустить</string>
+    <string name="voice_skipped">вопрос пропущен</string>
+    <string name="voice_or_type_answer">или напишите свой ответ</string>
+    <string name="voice_or_say_answer">или нажмите на шар и скажите свой ответ</string>
+    <string name="voice_say_choices">Варианты: %1$s.</string>
 </resources>

@@ -181,7 +181,8 @@ class WidgetServices(
     /** What's playing on the phone. */
     val media = Media(context)
     private val notifications = Notifications(context, media, ::profileKind)
-    private val volume = Volume(context)
+    /** android.volume and volume(...); volume("request") asks the activity in front for Bluetooth, for the battery. */
+    val volume = Volume(context)
     private val alarm = Alarm(context)
     private val modes = Modes(context)
     private val sim = Sim(context)
@@ -190,7 +191,7 @@ class WidgetServices(
     val airpods = AirPods(context, scope)
     private val panels = SystemPanels(context)
 
-    /** Opens launcher screens ("style" or "themes", "agents", "drawer"); set by the UI. */
+    /** Opens launcher screens ("style" or "themes", "agents", "store" or "store:apps", "drawer"); set by the UI. */
     var launcherAction: ((String) -> Unit)? = null
 
     /** What the drawer's long-press menu does, for appAction(...); set by the UI. */
@@ -601,7 +602,8 @@ class WidgetServices(
     private fun drawer(): Value {
         val apps = runtime.androidApps
         val hits =
-            runtime.widgets.apps().map { AppHit.Owl(it) } + runtime.linuxApps.apps.map { AppHit.Linux(it) } +
+            // By name, as Linux and Android apps come: the files' order put a sideloaded app's shared- name among the rest.
+            runtime.widgets.apps().sortedBy { it.name.lowercase() }.map { AppHit.Owl(it) } + runtime.linuxApps.apps.map { AppHit.Linux(it) } +
                 apps.shortcuts.filter { !it.work }.map { AppHit.Shortcut(it) } + apps.apps.filter { !it.work }.map { AppHit.Android(it) } +
                 apps.shortcuts.filter { it.work }.map { AppHit.Shortcut(it) } + apps.apps.filter { it.work }.map { AppHit.Android(it) }
         val list = hits.take(Builtins.MAX_LIST).map(::appValue)

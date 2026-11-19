@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="store_title">商店</string>
+    <string name="store_widgets_title">小组件商店</string>
+    <string name="store_apps_title">应用商店</string>
+    <string name="store_featured">精选</string>
 
     <string name="store_kind_widgets">小组件</string>
     <string name="store_kind_faces">全屏小组件</string>
@@ -151,7 +153,13 @@
     <string name="store_theme_search">搜索 %1$d 个主题</string>
     <string name="store_theme_header">由社区制作，列于 omarchy.org/themes · 从 GitHub 安装</string>
     <string name="store_theme_in_use">✓ 使用中</string>
-    <string name="store_theme_install_confirm">安装 %1$s？</string>
+    <string name="store_theme_light">浅色</string>
+    <string name="store_theme_dark">深色</string>
+    <plurals name="store_theme_wallpapers">
+        <item quantity="other">%d 张壁纸</item>
+    </plurals>
+    <string name="store_theme_use">使用</string>
+    <string name="store_theme_github">GitHub</string>
     <string name="store_theme_install_message">来自 %1$s。Linux 会获得它的颜色和壁纸，但不包括它的脚本和终端配置。</string>
     <string name="store_theme_install_message_replaces">来自 %1$s。Linux 会获得它的颜色和壁纸，但不包括它的脚本和终端配置。\n\n它会替换你的 %2$s。</string>
     <string name="store_theme_install_message_over">来自 %1$s。Linux 会获得它的颜色和壁纸，但不包括它的脚本和终端配置。\n\n它会覆盖 Omarchy 的 %2$s；移除它即可恢复原样。</string>

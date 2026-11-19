@@ -1,6 +1,8 @@
 package dev.omalauncher.voice
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -49,7 +51,10 @@ class VoiceSession(
         val text: String,
     )
 
-    /** A question: [label] as a step is shown, [said] as what it wants to do ("read x.png"), [detail] whole. */
+    /**
+     * A question: [label] as a step is shown, [said] as what it wants to do ("read x.png"), [detail] whole. Or, with
+     * [choices], one the agent asks the user ([label]), answered in words: the choices to pick from, maybe none.
+     */
     data class Approval(
         val id: String,
         val act: Act,
@@ -57,6 +62,7 @@ class VoiceSession(
         val said: String,
         val detail: String,
         val key: String,
+        val choices: List<String>? = null,
     )
 
     /** The agents that can talk: installed, and with a link. */
@@ -185,13 +191,18 @@ class VoiceSession(
 
     /** The turn in progress has its reply so far in the transcript already ([ask]), so it did say something. */
     private var keptEarly = false
-    private var lastSaid = 0L
+
+    /** Talked over: the rest of this reply is shown, not read aloud, so the microphone doesn't hear it. Until [ask]. */
+    private var hushed = false
     private var lastEvent = 0L
     private var doneAt = 0L
 
     /** When the turn in progress was asked, and whether anything came back since. */
     private var asked = 0L
     private var heardBack = false
+
+    /** The notice the watch put up for an agent that's silent: it goes once the agent is heard from again. */
+    private var silentNotice: String? = null
     private var restarts = 0
     private var screens = 0
     private val complaints = ArrayDeque<String>()
@@ -237,12 +248,17 @@ class VoiceSession(
     var rate by mutableFloatStateOf(DEFAULT_RATE)
         private set
 
+    /** How long a pause after what's been said sends it, in milliseconds; 0 for only a tap on the orb. */
+    var sendAfter by mutableLongStateOf(DEFAULT_SEND_AFTER)
+        private set
+
     init {
         readJson(settingsFile)?.let { s ->
             // Saved in three letters ("deu") before Speaker named the engine's languages in two.
             language = s.optString("language").ifEmpty { null }?.let(AppLanguage::short)
             voice = s.optString("voice").ifEmpty { null }
             rate = s.optDouble("rate", DEFAULT_RATE.toDouble()).toFloat().takeIf { it in 0.5f..2f } ?: DEFAULT_RATE
+            sendAfter = s.optLong("sendAfter", DEFAULT_SEND_AFTER).takeIf { it in SEND_AFTER } ?: DEFAULT_SEND_AFTER
         }
         speaker.use(language, voice, rate)
     }
@@ -257,6 +273,12 @@ class VoiceSession(
         this.voice = voice
         this.rate = rate
         speaker.use(language, voice, rate)
+        saveSettings()
+    }
+
+    /** Sends what's been said after a pause of [ms], one of [SEND_AFTER]; 0 for only on a tap. */
+    fun useSendAfter(ms: Long) {
+        sendAfter = ms
         saveSettings()
     }
 
@@ -319,15 +341,18 @@ class VoiceSession(
         if (said.isEmpty()) return
         if (agent == null) return
         notice = null
+        hushed = false
         // What it said so far comes first: the reply in progress is shown last, and would end up below this.
         val kept = reply.isNotBlank()
         keepReply()
-        // An answer to the question on screen: yes, no, or what to do instead.
+        // An answer to the question on screen: yes, no, or what to do instead; to one the agent asked, the words.
         approvals.firstOrNull()?.let { a ->
             if (kept) keptEarly = true
             transcript += Entry("you", said)
             saveTranscript()
             when {
+                a.choices != null -> reply(a.id, said)
+                ALWAYS.containsMatchIn(said) -> answer(a.id, true, always = true)
                 YES.containsMatchIn(said) -> answer(a.id, true)
                 NO.matches(said) -> answer(a.id, false)
                 else -> answer(a.id, false, instead = said)
@@ -373,6 +398,12 @@ class VoiceSession(
         return if (note == null) said else "($note)\n\n$said"
     }
 
+    /** The user talks: the voice stops, and what the agent says until the next [ask] isn't read aloud over them. */
+    fun hush() {
+        hushed = true
+        speaker.stop()
+    }
+
     /** Types and reads instead of talking, or talks again; the agent hears of it with the next prompt. */
     fun type(on: Boolean) {
         if (on == typing) return
@@ -384,7 +415,7 @@ class VoiceSession(
     /** Stops the task: the voice, the turn and anything waiting. */
     fun stop() {
         speaker.stop()
-        for (a in approvals.toList()) answer(a.id, false)
+        for (a in approvals.toList()) if (a.choices != null) reply(a.id, null) else answer(a.id, false)
         if (turns > 0) link?.cancel()
         turns = 0
         endReply()
@@ -405,9 +436,31 @@ class VoiceSession(
         transcript += Entry("note", (if (allow) "✓ " else "✗ ") + what + if (always) " · " + str(R.string.voice_always) else "")
         saveTranscript()
         val took = link?.answer(id, allow, always, instead) ?: true
-        if (!took && instead != null) link?.prompt(instead)
+        // The agent can't take it with the refusal (ACP): a prompt of its own, so a turn of its own, as the refused
+        // one ends cancelled. Not counted, the screen showed the agent as idle, with no stop, while it went on.
+        if (!took && instead != null) {
+            turns++
+            lastEvent = System.currentTimeMillis()
+            link?.prompt(withNote(instead))
+        }
         // Questions that came while this one was up and that "always" now covers.
-        for (other in approvals.toList()) if (approveAll || Steps.covered(other.key, this.always)) answer(other.id, true)
+        for (other in approvals.toList()) if (other.choices == null && (approveAll || Steps.covered(other.key, this.always))) answer(other.id, true)
+        settle()
+        approvals.firstOrNull()?.let(::announce)
+    }
+
+    /** Answers the agent's question [id] with [answer], or skips it (null). */
+    fun reply(
+        id: String,
+        answer: String?,
+    ) {
+        val a = approvals.firstOrNull { it.id == id } ?: return
+        approvals.remove(a)
+        if (answer == null) {
+            transcript += Entry("note", "✗ " + str(R.string.voice_skipped))
+            saveTranscript()
+        }
+        link?.answerQuestion(id, answer)
         settle()
         approvals.firstOrNull()?.let(::announce)
     }
@@ -417,7 +470,7 @@ class VoiceSession(
         saveSettings()
         transcript += Entry("note", if (on) str(R.string.voice_note_allow_all, name) else str(R.string.voice_note_ask_again))
         saveTranscript()
-        if (on) for (a in approvals.toList()) answer(a.id, true)
+        if (on) for (a in approvals.toList()) if (a.choices == null) answer(a.id, true)
     }
 
     /** [bin] is being removed: its process stops if it's the agent here, as mise won't delete a running one. */
@@ -663,6 +716,8 @@ class VoiceSession(
     private fun events(list: List<LinkEvent>) {
         if (list.isEmpty()) return
         lastEvent = System.currentTimeMillis()
+        if (notice != null && notice == silentNotice) notice = null
+        silentNotice = null
         for (e in list) {
             when (e) {
                 is LinkEvent.Session -> {
@@ -684,11 +739,12 @@ class VoiceSession(
                     handOver(final = false)
                     if (phase != Phase.Approval) phase = Phase.Working
                 }
+                // Nothing to show, but it's at work: no "no answer yet" while it thinks for a minute or two.
+                LinkEvent.Thinking -> heardBack = true
                 LinkEvent.Working -> {
                     heardBack = true
                     handOver(final = true)
                     afterTool = true
-                    if (System.currentTimeMillis() - lastSaid > PROGRESS_MS) say(spoken(R.string.voice_say_moment))
                     if (phase != Phase.Approval) phase = Phase.Working
                 }
                 is LinkEvent.Step -> {
@@ -707,6 +763,20 @@ class VoiceSession(
                             phase = Phase.Approval
                             announce(a)
                         }
+                    }
+                }
+                // Asked of the user, never answered for them: after what it said so far, so the conversation reads in order.
+                is LinkEvent.Question -> {
+                    heardBack = true
+                    endReply()
+                    // It did say something this turn, if nothing after the answer.
+                    keptEarly = true
+                    transcript += Entry("agent", e.question)
+                    saveTranscript()
+                    approvals += Approval(e.id, Act(Act.Verb.Tool), e.question, e.question, "", "", e.choices)
+                    if (approvals.size == 1) {
+                        phase = Phase.Approval
+                        announce(approvals.first())
                     }
                 }
                 is LinkEvent.Done -> {
@@ -747,7 +817,11 @@ class VoiceSession(
         phase = if (approvals.isNotEmpty()) Phase.Approval else if (busy) Phase.Working else Phase.Idle
     }
 
-    private fun announce(a: Approval) = say(spoken(R.string.voice_say_wants, name, said(a.act, aloud = true)))
+    private fun announce(a: Approval) {
+        if (a.choices == null) return say(spoken(R.string.voice_say_wants, name, said(a.act, aloud = true)))
+        say(a.label)
+        if (a.choices.isNotEmpty()) say(spoken(R.string.voice_say_choices, a.choices.joinToString(", ")))
+    }
 
     /** The agent's name, for what's shown and said. */
     private val name get() = agent?.name ?: str(R.string.voice_the_agent)
@@ -792,10 +866,9 @@ class VoiceSession(
     }
 
     private fun say(text: String) {
-        if (typing) return
+        if (typing || hushed) return
         val clean = spokenText(text)
         if (clean.isEmpty()) return
-        lastSaid = System.currentTimeMillis()
         speaker.speak(clean)
     }
 
@@ -845,11 +918,24 @@ class VoiceSession(
                     settle()
                 }
                 // Nothing at all since the prompt: OpenCode out of its free quota leaves a prompt hanging without a word.
-                if (turns > 0 && !heardBack && now - asked > SILENT_MS && notice == null) notice = str(R.string.voice_no_answer, name)
-                if (turns > 0 && now - lastEvent > QUIET_MS && notice == null) notice = str(R.string.voice_quiet, name)
+                if (turns > 0 && !heardBack && now - asked > SILENT_MS && notice == null) silent(R.string.voice_no_answer)
+                if (turns > 0 && now - lastEvent > QUIET_MS && notice == null) silent(R.string.voice_quiet)
                 if (process != null) main.postDelayed(this, 1000)
             }
+
+            /** Says the agent is silent, and why when it's plain: the phone is offline, and agents just wait then. */
+            private fun silent(why: Int) {
+                silentNotice = str(if (online()) why else R.string.voice_offline, name)
+                notice = silentNotice
+            }
         }
+
+    /** Whether the phone has a network; airplane mode or no signal is none. */
+    private fun online(): Boolean {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return true
+        val caps = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
 
     private fun startWatch() {
         main.removeCallbacks(watch)
@@ -872,7 +958,7 @@ class VoiceSession(
     private fun saveSettings() =
         writeFile(
             settingsFile,
-            json("agent" to agent?.bin, "approveAll" to approveAll, "typing" to typing, "language" to language, "voice" to voice, "rate" to rate.toDouble()).toString(),
+            json("agent" to agent?.bin, "approveAll" to approveAll, "typing" to typing, "language" to language, "voice" to voice, "rate" to rate.toDouble(), "sendAfter" to sendAfter).toString(),
         )
 
     private fun writeFile(
@@ -954,11 +1040,16 @@ class VoiceSession(
             )
 
         const val DEFAULT_RATE = 1.25f
+
+        /** The pauses that can send what's been said, 0 for none (a tap sends). */
+        val SEND_AFTER = listOf(0L, 1_000L, 2_000L, 4_000L)
+
+        /** Off: a tap on the orb sends, so a pause to think doesn't send half a sentence. */
+        const val DEFAULT_SEND_AFTER = 0L
         const val IDLE_STOP_MS = 10 * 60_000L
         const val RESUME_MS = 12 * 3_600_000L
         const val QUIET_MS = 120_000L
         const val SILENT_MS = 45_000L
-        const val PROGRESS_MS = 12_000L
         private const val REMIND_EVERY = 5
         private const val VOICE_REMINDER = "Still a voice conversation: keep it short."
         private const val TYPING_NOTE =
@@ -974,13 +1065,31 @@ class VoiceSession(
         internal val YES =
             Regex(
                 "^$EDGE(?:(?:yes|yeah|yep|sure|ok|okay|allow|allowed|approve|go ahead|do it|go|fine|alright|please do|" +
-                    "ja|klar|si|sí|vale|claro|oui|sim|pode|ya|iya|boleh|oke)(?![\\p{L}\\p{N}])|是|好|可以|行|对|嗯)",
+                    "ja|klar|si|sí|vale|claro|oui|ouais|d'accord|d’accord|vas-y|vas y|bien sûr|sim|pode|ya|iya|boleh|oke|да|конечно|давай|хорошо|ладно|можно|" +
+                    "звісно|гаразд|добре|можна)(?![\\p{L}\\p{N}])" +
+                    // Ukrainian yes, but only alone: a Russian sentence often starts with it ("so, …").
+                    "|так(?=$EDGE$)" +
+                    "|是|好|可以|行|对|嗯|はい|ええ|うん|いいよ|どうぞ|お願い)",
                 RegexOption.IGNORE_CASE,
             )
         internal val NO =
             Regex(
                 "^$EDGE(?:no|nope|deny|don't|do not|stop|cancel|never mind|nevermind|nein|non|não|nao|tidak|jangan|" +
-                    "nggak|gak|enggak|不要|不用|不行|不|别|算了)$EDGE$",
+                    "non merci|annule|arrête|laisse tomber|pas question|" +
+                    "nggak|gak|enggak|нет|не надо|не нужно|стоп|отмена|ні|не треба|скасуй|" +
+                    "不要|不用|不行|不|别|算了|いいえ|いや|だめ|ダメ|やめて|キャンセル)$EDGE$",
+                RegexOption.IGNORE_CASE,
+            )
+
+        /**
+         * "Always", the card's own word, maybe after a yes or before an "allow": allowed, and from now on without
+         * asking. The whole answer only: "always ask me first" is something to do instead.
+         */
+        internal val ALWAYS =
+            Regex(
+                "^$EDGE(?:(?:yes|yeah|yep|sure|ok|okay|ja|si|sí|oui|sim|ya|iya|да|так)$EDGE|(?:是|好|はい)$EDGE)?" +
+                    "(?:allow always|always|immer|siempre|toujours|sempre|selalu|всегда|завжди|总是|始终|一直|永远|いつも|常に|ずっと)" +
+                    "(?:$EDGE(?:allow it|allow|erlauben|autoriser|允许|許可))?$EDGE$",
                 RegexOption.IGNORE_CASE,
             )
 

@@ -45,8 +45,19 @@ class Speech(
     var listening by mutableStateOf(false)
         private set
 
+    private val textState = mutableStateOf("")
+
     /** What's been recognized so far: finished segments plus the current partial result. */
-    var text by mutableStateOf("")
+    var text: String
+        get() = textState.value
+        private set(value) {
+            val changed = value != textState.value
+            textState.value = value
+            if (changed) heard()
+        }
+
+    /** Listening, but the recognizer is still loading: what's said is kept, and turns into text once it's loaded. */
+    var preparing by mutableStateOf(false)
         private set
 
     /** Input loudness, 0..1. */
@@ -57,6 +68,9 @@ class Speech(
     var error by mutableStateOf<String?>(null)
 
     private var recognizer: SpeechRecognizer? = null
+
+    /** Listening with Parakeet instead of Android's recognizers, when its models are on the phone. */
+    private var parakeet: Parakeet? = null
     private var onDevice = onDeviceAvailable(context) && !pickedOther(context)
     private var finished = ""
 
@@ -66,6 +80,21 @@ class Speech(
 
     /** While held, pauses don't end recognition: a new segment starts until [stop]. */
     private var held = false
+
+    /** How long it listens with nothing new heard, once something was, before it stops by itself; null for until [stop]. */
+    private var quietStop: Long? = null
+
+    /** The same before anything is heard. */
+    private var waitStop: Long? = null
+
+    private val quiet = Runnable { if (listening) stop() }
+
+    /** Something new was heard: [quietStop] (or [waitStop]) counts again from now. */
+    private fun heard() {
+        main.removeCallbacks(quiet)
+        val after = if (text.isBlank()) waitStop else quietStop
+        after?.let { if (listening) main.postDelayed(quiet, it) }
+    }
 
     /** Whether this recognition has started over once already, after losing the recognizer; see [Listener.onError]. */
     private var retried = false
@@ -82,6 +111,8 @@ class Speech(
      */
     fun start(
         hold: Boolean,
+        quietStop: Long? = null,
+        waitStop: Long? = quietStop,
         onDone: (String) -> Unit,
     ) {
         cancel()
@@ -93,13 +124,62 @@ class Speech(
             return
         }
         held = hold
+        this.quietStop = quietStop
+        this.waitStop = waitStop
         this.onDone = onDone
         finished = ""
         partial = ""
         text = ""
         listening = true
         retried = false
-        if (!onDeviceAvailable && regularService(context) == null) speakNow() else listen()
+        heard()
+        when {
+            ParakeetModel.used(context, wanted()) -> listenWithParakeet()
+            !onDeviceAvailable && regularService(context) == null -> speakNow()
+            else -> listen()
+        }
+    }
+
+    private fun listenWithParakeet() {
+        lateinit var p: Parakeet
+        p =
+            Parakeet(
+                context,
+                held,
+                object : Parakeet.Events {
+                    private val current get() = p === parakeet
+
+                    override fun ready() {
+                        if (current) preparing = false
+                    }
+
+                    override fun partial(text: String) {
+                        if (!current) return
+                        partial = text
+                        this@Speech.text = join(finished, text)
+                    }
+
+                    override fun phrase(text: String) {
+                        if (!current) return
+                        finished = join(finished, text)
+                        partial = ""
+                        this@Speech.text = finished
+                    }
+
+                    override fun level(level: Float) {
+                        if (current) this@Speech.level = level
+                    }
+
+                    override fun ended(error: String?) {
+                        if (!current) return
+                        if (error != null && this@Speech.text.isBlank()) this@Speech.error = error
+                        finish()
+                    }
+                },
+            )
+        parakeet = p
+        preparing = true
+        p.start()
     }
 
     /**
@@ -129,11 +209,29 @@ class Speech(
     /** Ends recognition now; the text so far goes to onDone. */
     fun stop() {
         held = false
+        parakeet?.let { return it.stop() }
         // The speak-now screen is in front, with its own stop.
         if (listening && recognizer == null && pending == null && speakingNow != null) return
         // Not listening yet, still asking for the languages: there's nothing to wait for.
         val r = recognizer?.takeIf { pending == null } ?: return finish()
         r.stopListening()
+    }
+
+    /**
+     * Forgets what's been heard and goes on listening, for a fresh start after a mistake. Android's recognizers start
+     * a new session: the one going on would bring the words back with its next partial result.
+     */
+    fun erase() {
+        if (!listening) return
+        finished = ""
+        partial = ""
+        text = ""
+        parakeet?.let { return it.erase() }
+        val r = recognizer?.takeIf { pending == null } ?: return
+        guarded {
+            r.cancel()
+            r.startListening(intent())
+        }
     }
 
     /** Ends recognition without calling onDone, and forgets what it heard. */
@@ -143,6 +241,10 @@ class Speech(
         finished = ""
         partial = ""
         text = ""
+        main.removeCallbacks(quiet)
+        preparing = false
+        parakeet?.cancel()
+        parakeet = null
         recognizer?.destroy()
         recognizer = null
         pending = null
@@ -197,8 +299,17 @@ class Speech(
                     override fun onSupportResult(support: RecognitionSupport) {
                         if (pending !== r) return
                         pending = null
-                        language = closestLanguage(support)
-                        Log.i(TAG, "recognizing ${language ?: "the default language"}")
+                        val closest = closestLanguage(support)
+                        // It knows languages, but not this one (German on a Pixel that has only English on the
+                        // phone): it would listen in its own and hear German as English words. The regular one next.
+                        if (closest == null && onDevice && knowsAny(support) && regularService(context) != null) {
+                            Log.i(TAG, "no on-device model for ${mainRegion()}, using the regular recognizer")
+                            onDevice = false
+                            return listen()
+                        }
+                        // Nothing known either way: asked for by name, it says if it can't (see Listener.onError).
+                        language = closest ?: mainRegion()
+                        Log.i(TAG, "recognizing $language")
                         begin(r)
                     }
 
@@ -273,6 +384,10 @@ class Speech(
      * then en-US style defaults, then any.
      */
     @androidx.annotation.RequiresApi(33)
+    private fun knowsAny(support: RecognitionSupport) =
+        listOf(support.installedOnDeviceLanguages, support.supportedOnDeviceLanguages, support.onlineLanguages).any { it.isNotEmpty() }
+
+    @androidx.annotation.RequiresApi(33)
     private fun closestLanguage(support: RecognitionSupport): String? {
         val locale = wanted()
         val tag = Locale(locale.language, locale.country).toLanguageTag()
@@ -305,6 +420,9 @@ class Speech(
     }
 
     private fun finish() {
+        main.removeCallbacks(quiet)
+        preparing = false
+        parakeet = null
         recognizer?.destroy()
         recognizer = null
         pending = null
@@ -446,7 +564,7 @@ class Speech(
         private const val TAG = "speech"
 
         /** Whether the phone has a speech recognizer at all: on-device, or the default one. */
-        fun available(context: Context) = onDeviceAvailable(context) || regularService(context) != null || canSpeakNow(context)
+        fun available(context: Context) = ParakeetModel.used(context, Locale.getDefault()) || onDeviceAvailable(context) || regularService(context) != null || canSpeakNow(context)
 
         /**
          * The recognizer to listen with, other than Google's on-device one: the phone's pick, else any real one. Real

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="voice_listening">正在听</string>
+    <string name="voice_listening">正在听 · 轻点发送</string>
     <string name="voice_listening_working">正在听 · 仍在工作</string>
+    <string name="voice_listening_preparing">准备中 · 可以开始说了</string>
     <string name="voice_starting">正在启动</string>
     <string name="voice_needs_ok">需要你确认 · %1$s</string>
     <string name="voice_working">工作中 · %1$s</string>
@@ -23,6 +24,7 @@
     <string name="voice_message">发消息给 %1$s</string>
     <string name="voice_answer_hint">是、不，或者改做什么</string>
     <string name="voice_send">发送</string>
+    <string name="voice_erase">清除刚才说的话</string>
     <string name="voice_stop">停止</string>
     <string name="voice_wants">%1$s 想要%2$s</string>
     <string name="voice_allow">允许</string>
@@ -54,7 +56,6 @@
     <string name="voice_do_tool">使用 %1$s</string>
     <string name="voice_do_tool_unknown">使用一个工具</string>
     <string name="voice_say_wants">%1$s 想要%2$s。允许吗？</string>
-    <string name="voice_say_moment">稍等。</string>
     <string name="voice_say_failed">抱歉，没成功。</string>
     <string name="voice_the_agent">智能体</string>
     <string name="voice_note_allow_all">允许 %1$s 请求的一切</string>
@@ -67,6 +68,7 @@
     <string name="voice_nothing_to_say">%1$s 回答了，但什么也没说</string>
     <string name="voice_no_answer">%1$s 还没有回答；可能额度用完了，或者没有登录</string>
     <string name="voice_quiet">%1$s 已经两分钟没动静了；如果卡住了就停止它</string>
+    <string name="voice_offline">没有网络：手机联网之前 %1$s 无法回答</string>
     <string name="voice_failed">失败了</string>
     <string name="voice_retrying">重试中：%1$s</string>
     <string name="voice_voice">声音</string>
@@ -79,4 +81,29 @@
     <string name="voice_tts_settings">文字转语音设置</string>
     <string name="voice_no_voice">这部手机还没有 %1$s 的语音：请在文字转语音设置中下载一个。</string>
     <string name="voice_sample">回复听起来会是这样。</string>
+    <string name="voice_recognition">语音识别</string>
+    <string name="voice_recognition_phone">手机自带的</string>
+    <string name="voice_recognition_parakeet">Parakeet，在这部手机上</string>
+    <string name="voice_parakeet_about">Parakeet 直接在这部手机上识别语音：离线运行，没有提示音，支持 25 种欧洲语言。需要下载 %1$s。</string>
+    <string name="voice_parakeet_download">下载</string>
+    <string name="voice_parakeet_mobile_data">你正在使用移动数据</string>
+    <string name="voice_parakeet_progress">%1$s / %2$s</string>
+    <string name="voice_parakeet_checking">正在检查下载的文件…</string>
+    <string name="voice_parakeet_cancel">取消</string>
+    <string name="voice_parakeet_delete">删除 Parakeet · %1$s</string>
+    <string name="voice_parakeet_failed">下载已中断：%1$s</string>
+    <string name="voice_parakeet_space">空间不足：还需要 %1$s</string>
+    <string name="voice_parakeet_damaged">下载的文件已损坏，请重试</string>
+    <string name="voice_parakeet_language">Parakeet 不支持%1$s：改用手机自带的语音识别。</string>
+    <string name="voice_send_after">停顿后发送</string>
+    <string name="voice_send_after_off">关</string>
+    <string name="voice_seconds">%1$d 秒</string>
+    <string name="voice_needs_answer">等待你的回答 · %1$s</string>
+    <string name="voice_your_answer">你的回答</string>
+    <string name="voice_asks">%1$s 提问</string>
+    <string name="voice_skip">跳过</string>
+    <string name="voice_skipped">已跳过问题</string>
+    <string name="voice_or_type_answer">或输入你自己的回答</string>
+    <string name="voice_or_say_answer">或点按圆圈说出你的回答</string>
+    <string name="voice_say_choices">选项：%1$s。</string>
 </resources>

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="store_title">tienda</string>
+    <string name="store_widgets_title">tienda de widgets</string>
+    <string name="store_apps_title">tienda de apps</string>
+    <string name="store_featured">destacadas</string>
 
     <string name="store_kind_widgets">widgets</string>
     <string name="store_kind_faces">widgets de pantalla completa</string>
@@ -155,7 +157,15 @@
     <string name="store_theme_search">buscar en %1$d temas</string>
     <string name="store_theme_header">hechos por la comunidad, listados en omarchy.org/themes · instalados desde GitHub</string>
     <string name="store_theme_in_use">✓ en uso</string>
-    <string name="store_theme_install_confirm">¿instalar %1$s?</string>
+    <string name="store_theme_light">claro</string>
+    <string name="store_theme_dark">oscuro</string>
+    <plurals name="store_theme_wallpapers">
+        <item quantity="one">%d fondo</item>
+        <item quantity="many">%d fondos</item>
+        <item quantity="other">%d fondos</item>
+    </plurals>
+    <string name="store_theme_use">usar</string>
+    <string name="store_theme_github">GitHub</string>
     <string name="store_theme_install_message">De %1$s. Linux recibe sus colores y fondos, no sus scripts ni sus configs de terminal.</string>
     <string name="store_theme_install_message_replaces">De %1$s. Linux recibe sus colores y fondos, no sus scripts ni sus configs de terminal.\n\nReemplaza tu %2$s.</string>
     <string name="store_theme_install_message_over">De %1$s. Linux recibe sus colores y fondos, no sus scripts ni sus configs de terminal.\n\nReemplaza al %2$s de Omarchy; si lo quitas, vuelve el original.</string>

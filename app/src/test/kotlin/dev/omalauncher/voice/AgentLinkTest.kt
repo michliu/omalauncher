@@ -109,6 +109,21 @@ class AgentLinkTest {
         assertEquals("and again", written.last().getJSONObject("params").getJSONArray("prompt").getJSONObject(0).getString("text"))
     }
 
+    @Test fun thinkingIsWork() {
+        assertEquals(
+            listOf(LinkEvent.Thinking),
+            AcpLink(write, "grok agent stdio").read(
+                """{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"g1","update":{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"Hmm"}}}}""",
+            ),
+        )
+        assertEquals(
+            listOf(LinkEvent.Thinking),
+            ClaudeLink(write).read(
+                """{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Hmm"}},"parent_tool_use_id":null}""",
+            ),
+        )
+    }
+
     @Test fun acpAsksAboutAnEditNamedInItsDiff() {
         val link = AcpLink(write, "hermes-acp")
         // Hermes 0.23.1: no locations, the path in rawInput.arguments and in the diff, and a title of its own.
@@ -117,6 +132,42 @@ class AgentLinkTest {
                 """{"jsonrpc":"2.0","id":0,"method":"session/request_permission","params":{"options":[{"kind":"allow_once","name":"Allow once","optionId":"allow_once"},{"kind":"reject_once","name":"Deny","optionId":"deny"}],"sessionId":"h1","toolCall":{"content":[{"newText":"hello\n","path":"/tmp/eval/AGENTS.md","type":"diff"}],"kind":"edit","rawInput":{"tool":"write_file","arguments":{"path":"/tmp/eval/AGENTS.md","content":"hello\n"}},"status":"pending","title":"Approve edit: /tmp/eval/AGENTS.md","toolCallId":"edit-approval-1"}}}""",
             ).single() as LinkEvent.Ask
         assertEquals(LinkEvent.Ask("p0", Act(Act.Verb.Edit, "AGENTS.md"), "/tmp/eval/AGENTS.md", "acp:edit"), ask)
+    }
+
+    @Test fun acpAsksTheUserAQuestion() {
+        val link = AcpLink(write, "hermes-acp")
+        link.open(null)
+        // Forms are offered: without them Hermes asks as a permission request with its choices as "allow" options.
+        assertTrue(written.last().getJSONObject("params").getJSONObject("clientCapabilities").getJSONObject("elicitation").has("form"))
+        // Hermes's clarify tool (acp_adapter/elicitation.py build_clarify_elicitation).
+        val question =
+            link.read(
+                """{"jsonrpc":"2.0","id":4,"method":"elicitation/create","params":{"sessionId":"h1","mode":"form","message":"Which theme?","requestedSchema":{"type":"object","properties":{"answer":{"type":"string","enum":["Nord (Recommended)","Gruvbox"]}},"required":["answer"]}}}""",
+            )
+        assertEquals(listOf(LinkEvent.Question("q4", "Which theme?", listOf("Nord (Recommended)", "Gruvbox"))), question)
+        // Any words go back, not just a choice.
+        link.answerQuestion("q4", "the dark one")
+        assertEquals(4, written.last().getInt("id"))
+        val result = written.last().getJSONObject("result")
+        assertEquals("accept", result.getString("action"))
+        assertEquals("the dark one", result.getJSONObject("content").getString("answer"))
+
+        // Several to pick: a list; skipped: declined.
+        link.read(
+            """{"jsonrpc":"2.0","id":5,"method":"elicitation/create","params":{"sessionId":"h1","mode":"form","message":"Which?","requestedSchema":{"type":"object","properties":{"answer":{"type":"array","items":{"type":"string","enum":["a","b"]}}}}}}""",
+        )
+        link.answerQuestion("q5", "a")
+        assertEquals("a", written.last().getJSONObject("result").getJSONObject("content").getJSONArray("answer").getString(0))
+        assertEquals(listOf(LinkEvent.Question("q6", "Name?", emptyList())), link.read("""{"jsonrpc":"2.0","id":6,"method":"elicitation/create","params":{"message":"Name?","requestedSchema":{"properties":{"name":{"type":"string"}}}}}"""))
+        link.answerQuestion("q6", null)
+        assertEquals("decline", written.last().getJSONObject("result").getString("action"))
+
+        // A form of several fields isn't something to say: declined, nothing asked.
+        assertTrue(
+            link.read("""{"jsonrpc":"2.0","id":7,"method":"elicitation/create","params":{"message":"Sign up","requestedSchema":{"properties":{"a":{"type":"string"},"b":{"type":"string"}}}}}""").isEmpty(),
+        )
+        assertEquals(7, written.last().getInt("id"))
+        assertEquals("decline", written.last().getJSONObject("result").getString("action"))
     }
 
     @Test fun acpDropsCopilotsFileNotice() {
