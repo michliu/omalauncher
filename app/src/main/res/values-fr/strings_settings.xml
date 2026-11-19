@@ -12,6 +12,7 @@
     </plurals>
     <string name="settings_gestures">gestes</string>
     <string name="settings_gestures_subtitle">haut : %1$s · bas : %2$s</string>
+    <string name="settings_gestures_subtitle_double_tap">" · double appui : %1$s"</string>
     <string name="settings_language">langue</string>
     <string name="settings_language_phone">langue du téléphone</string>
     <string name="settings_linux">linux</string>

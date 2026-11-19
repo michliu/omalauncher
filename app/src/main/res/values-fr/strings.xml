@@ -10,4 +10,5 @@
     <string name="activity_voice">Voix</string>
     <string name="activity_settings">Paramètres</string>
     <string name="notification_listener">Widgets Omalauncher</string>
+    <string name="lock_service_description">Verrouille l'écran quand le geste de verrouillage est utilisé sur l'écran d'accueil. Omalauncher ne lit rien par ce service.</string>
 </resources>
