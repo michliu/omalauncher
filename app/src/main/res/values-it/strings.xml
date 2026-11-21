@@ -10,4 +10,5 @@
     <string name="activity_voice">Voce</string>
     <string name="activity_settings">Impostazioni</string>
     <string name="notification_listener">Widget di Omalauncher</string>
+    <string name="lock_service_description">Blocca lo schermo quando il gesto di blocco viene usato nella schermata home. Omalauncher non legge nulla tramite questo servizio.</string>
 </resources>

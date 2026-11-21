@@ -25,6 +25,7 @@
     <string name="style_hidden">gizli</string>
     <string name="style_empty_page_left">solda boş sayfa</string>
     <string name="style_empty_page_right">sağda boş sayfa</string>
+    <string name="style_empty_page_hint">boş sayfa notu</string>
     <string name="style_columns">sütunlar</string>
     <string name="style_pages">sayfalar</string>
     <string name="style_pages_one">tek</string>
@@ -135,6 +136,14 @@
     <string name="gestures_title">hareketler</string>
     <string name="gestures_swipe_up">yukarı kaydır</string>
     <string name="gestures_swipe_down">aşağı kaydır</string>
+    <string name="gestures_double_tap">çift dokunuş</string>
+    <string name="gestures_action_notifications">bildirimler</string>
+    <string name="gestures_action_settings">ayarlar</string>
+    <string name="gestures_action_style">görünüm</string>
+    <string name="gestures_action_store">widget mağazası</string>
+    <string name="gestures_action_agents">kodlama ajanları</string>
+    <string name="gestures_action_terminal">terminal</string>
+    <string name="gestures_action_lock">ekran kilidi</string>
     <string name="gestures_nothing">hiçbiri</string>
     <string name="gestures_has_errors">%1$s (hatalı)</string>
     <string name="gestures_missing">%1$s (eksik)</string>

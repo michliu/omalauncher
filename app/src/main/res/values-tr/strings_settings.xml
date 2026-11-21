@@ -11,6 +11,7 @@
     </plurals>
     <string name="settings_gestures">hareketler</string>
     <string name="settings_gestures_subtitle">yukarı: %1$s · aşağı: %2$s</string>
+    <string name="settings_gestures_subtitle_double_tap">" · çift dokunuş: %1$s"</string>
     <string name="settings_language">dil</string>
     <string name="settings_language_phone">telefonun dili</string>
     <string name="settings_linux">linux</string>

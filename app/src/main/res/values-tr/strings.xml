@@ -10,4 +10,5 @@
     <string name="activity_voice">Ses</string>
     <string name="activity_settings">Ayarlar</string>
     <string name="notification_listener">Omalauncher widget’ları</string>
+    <string name="lock_service_description">Ana ekranda ekran kilidi hareketi kullanıldığında ekranı kilitler. Omalauncher bu hizmet üzerinden hiçbir şey okumaz.</string>
 </resources>
