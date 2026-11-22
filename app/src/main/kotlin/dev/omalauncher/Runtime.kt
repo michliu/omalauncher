@@ -46,7 +46,7 @@ import dev.omalauncher.theme.ThemeStore
 import dev.omalauncher.ui.home.Gestures
 import dev.omalauncher.ui.KeyboardBridge
 import dev.omalauncher.ui.settings.SettingsPage
-import dev.omalauncher.ui.voice.Speaker
+import dev.omalauncher.voice.Speaker
 import dev.omalauncher.voice.VoiceSession
 import dev.omalauncher.ui.home.TerminalTiles
 import dev.omalauncher.ui.WindowManager
@@ -758,6 +758,11 @@ class Runtime(
     /** Opens the voice screen, a spoken conversation with a coding agent. */
     fun openVoice() {
         InstantActivity.startInstantly(context, Intent(context, VoiceActivity::class.java))
+    }
+
+    /** Opens the voice screen to change the owl file [spec]: the agent there hears about it with the first thing said. */
+    fun editByVoice(spec: WidgetSpec) {
+        InstantActivity.startInstantly(context, VoiceActivity.edit(context, spec.file.name))
     }
 
     /** Opens the Files app, at [path] (a guest path) if given. */

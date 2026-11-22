@@ -1,10 +1,11 @@
-package dev.omalauncher.ui.voice
+package dev.omalauncher.voice
 
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.text.format.Formatter
 import android.util.Log
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -12,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.omalauncher.R
 import dev.omalauncher.net.openHttp
+import dev.omalauncher.widgets.lang.hex
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -75,16 +77,25 @@ internal object ParakeetModel {
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    private val onState = mutableStateOf<Boolean?>(null)
+    @Volatile
+    private var onState: MutableState<Boolean>? = null
+
+    /**
+     * The pick as Compose state, made from [saved] by its first reader. Made, not written: the first reader can be the
+     * drawer's snapshotFlow, whose snapshot is read-only, and a write there throws.
+     */
+    internal fun onState(saved: () -> Boolean): MutableState<Boolean> = onState ?: synchronized(this) { onState ?: mutableStateOf(saved()).also { onState = it } }
+
+    private fun onState(context: Context) = onState { prefs(context).getBoolean(ON, true) }
 
     /** Whether Parakeet is picked over the phone's recognizer, once it's downloaded. */
-    fun on(context: Context): Boolean = onState.value ?: prefs(context).getBoolean(ON, true).also { onState.value = it }
+    fun on(context: Context): Boolean = onState(context).value
 
     fun setOn(
         context: Context,
         on: Boolean,
     ) {
-        onState.value = on
+        onState(context).value = on
         prefs(context).edit().putBoolean(ON, on).apply()
     }
 
@@ -251,7 +262,7 @@ internal object ParakeetModel {
                 digest.update(buffer, 0, n)
             }
         }
-        return digest.digest().joinToString("") { "%02x".format(it) }
+        return digest.digest().hex()
     }
 
     private const val TAG = "parakeet"
