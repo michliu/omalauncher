@@ -339,8 +339,20 @@ class WidgetInstance(
         }.onFailure { report("couldn't keep the secrets: ${it.message}") }
     }
 
+    /**
+     * Takes in persisted values written to its file from elsewhere (a linked computer's, see ComputerLink) while it
+     * runs: as at start, and not written back. Main thread.
+     */
+    fun reloadPersisted() = restore()
+
     private fun restore() {
-        val file = savedFile?.takeIf { persisted.isNotEmpty() && it.exists() } ?: return
+        val file = savedFile?.takeIf { persisted.isNotEmpty() && it.exists() }
+        if (file == null) {
+            // Nothing saved yet: the starting values aren't written until one changes. Written at once, with the time,
+            // they'd be the newest save of a widget a linked computer had just sent with its values, and win over them.
+            if (persisted.isNotEmpty()) lastSaved = persisted.map { read(it) }
+            return
+        }
         val text = runCatching { file.readText() }.getOrNull() ?: return
         for ((i, v) in PersistedValues.decode(program, text, System.currentTimeMillis() / 1000.0)) write(i, v)
         lastSaved = persisted.map { read(it) }
@@ -350,9 +362,11 @@ class WidgetInstance(
     @Synchronized
     private fun save(values: List<Value>) {
         val file = savedFile ?: return
-        if (values == lastSaved) return
-        val text = PersistedValues.encode(program, values, System.currentTimeMillis() / 1000)
+        // All inside: a list of lists thousands deep overflows the stack when compared or written as JSON, and the
+        // first save runs as each widget starts.
         runCatching {
+            if (values == lastSaved) return
+            val text = PersistedValues.encode(program, values, System.currentTimeMillis() / 1000)
             writeAtomically(file, text.toByteArray())
             lastSaved = values
         }.onFailure { report("couldn't save persisted values: ${it.message}") }
