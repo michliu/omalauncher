@@ -29,6 +29,7 @@
     <string name="style_hidden">ẩn</string>
     <string name="style_empty_page_left">trang trống bên trái</string>
     <string name="style_empty_page_right">trang trống bên phải</string>
+    <string name="style_empty_page_hint">ghi chú trang trống</string>
     <string name="style_columns">cột</string>
     <!-- Whether home is one page, or as many as its apps take. -->
     <string name="style_pages">trang</string>
@@ -162,6 +163,14 @@
     <string name="gestures_title">cử chỉ</string>
     <string name="gestures_swipe_up">vuốt lên</string>
     <string name="gestures_swipe_down">vuốt xuống</string>
+    <string name="gestures_double_tap">chạm hai lần</string>
+    <string name="gestures_action_notifications">thông báo</string>
+    <string name="gestures_action_settings">cài đặt</string>
+    <string name="gestures_action_style">giao diện</string>
+    <string name="gestures_action_store">cửa hàng tiện ích</string>
+    <string name="gestures_action_agents">tác nhân lập trình</string>
+    <string name="gestures_action_terminal">terminal</string>
+    <string name="gestures_action_lock">khóa màn hình</string>
     <!-- What a swipe opens when it opens no panel. -->
     <string name="gestures_nothing">không có gì</string>
     <!-- %1$s is a panel's name. -->

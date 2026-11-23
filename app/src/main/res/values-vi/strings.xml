@@ -12,4 +12,5 @@
     <string name="activity_settings">Cài đặt</string>
     <!-- In Android's notification access settings. -->
     <string name="notification_listener">Tiện ích Omalauncher</string>
+    <string name="lock_service_description">Khóa màn hình khi cử chỉ khóa màn hình được dùng trên màn hình chính. Omalauncher không đọc gì qua dịch vụ này.</string>
 </resources>
