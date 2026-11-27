@@ -8,7 +8,7 @@ Part of the widget docs: README.md, one folder up, comes first, and paths here a
 |---|---|
 | `source x = cmd("...") every 5s` | runs a bash command in this Arch system; `x` is its output (stdout, trimmed). Add `json` to parse JSON output, `timeout 30s` to allow more than 10 s, `status` to get `{out, err, code, ok}` instead (see below), `optional` to let the widget work without Linux (see Without Linux). Output stops at 4 MB, and a command still writing then fails. Default interval: 60 s |
 | `source x = stream("...")` | a long-running command; every line it prints becomes the new value. Add `json` for JSON lines. At most 4 different streams run at once |
-| `source x = http("https://...") every 10m` | an HTTP GET from Android, no curl or shell needed. Takes `json`, `timeout` and `status` like cmd (with `status`, `code` is the HTTP status and `ok` means 2xx), and optionally headers: `http(url, {Accept: "application/json"})`, and `pin:` for a server with a certificate of its own (owl 17, see Sending). A response over 1 MB fails (`the response is over 1 MB`), and the interval is 5 s or more. Prefer it over `cmd("curl ...")`. A URL can hold values, through `enc()` (see Values in URLs); it's fetched again as soon as it changes, and a `null` URL pauses the source, keeping its last value: `http(tab == "news" ? "https://..." : null)` fetches only while that tab shows. A failed fetch (offline, an error status, a rate limit) is tried again after 30 s |
+| `source x = http("https://...") every 10m` | an HTTP GET from Android, no curl or shell needed. Takes `json`, `timeout` and `status` like cmd (with `status`, `code` is the HTTP status and `ok` means 2xx), and optionally headers: `http(url, {Accept: "application/json"})`, and `pin:` for a server with a certificate of its own (owl 17, see Sending). A response over 1 MB fails (`the response is over 1 MB`), and the interval is 5 s or more. Prefer it over `cmd("curl ...")`. A URL can hold values, through `enc()` (see Values in URLs); it's fetched again as soon as it or the headers change (an answer that comes after they changed is dropped, so another account's data never shows), and a `null` URL pauses the source, keeping its last value: `http(tab == "news" ? "https://..." : null)` fetches only while that tab shows. A failed fetch (offline, an error status, a rate limit) is tried again after 30 s |
 | `source x = ws("wss://...")` | a WebSocket from Android (owl 17): every message the server sends becomes the new value. Takes `json`, headers and `pin:` like `http`, and `status` for `{out, open, err}`: the last message, whether it's connected, and why it last failed. Connected while its page shows, again when its URL changes, and again after it drops; a `null` URL keeps it closed. `send(x, message)` talks back, and `on x each { }` runs for every message. See WebSockets in docs/handlers.md |
 | `source x = file("~/.cache/x.json")` | a file in this system, read again whenever it changes (no polling, no shell). Add `json` to parse it. A missing file reads as `""`; at most 1 MB is read. Prefer it over `cmd("cat ...") every 5s` (owl 4) |
 | `source now = clock every 1s` | Unix time in seconds, with no shell involved. Use `fmtTime(now, "HH:mm")` |
@@ -206,3 +206,23 @@ widget "inbox" {
   Dates and numbers follow the phone's language already, through `fmtTime` and `fmtNum`.
 - `lang()` is the phone's language code, for an API that takes one: `http("https://wttr.in/?lang=${lang()}")`.
 - A widget follows a change of the phone's language when it compiles anew, which the launcher does then.
+
+### Right to left
+
+Arabic, Persian, Hebrew and Urdu are written right to left. A file of owl 27 or later that has a `strings` set for
+the phone's language, one of those (`ar`, `fa`, `he`, `ur`), is laid out right to left on that phone:
+
+- A `Row`'s first child is the rightmost, and `Flow` and `Grid` fill from the right.
+- `start` is the right side and `end` the left, in `align`, `justify`, and a Text's `align`. `center`, `top`
+  and `bottom` stay.
+- A `Popup` lines up with its anchor's right edge.
+- `padding: [l, t, r, b]` is start, top, end, bottom: its first number is the right side's.
+
+What stays as it is: a `Canvas`, `offset` and a drag's or touch's x (all still count from the left), a `Slider` (its
+low end is on the left), a key bar, `screenLeft` and `screenRight`, and the home screen's pages. Text itself is always written in its own direction,
+with or without this: Arabic in a left-to-right widget still reads right to left, only from the left edge.
+
+Any other file stays left to right on every phone, as it was made: one without that language's set (its text shows
+in English), and one below owl 27, which was never seen mirrored. So adding an `ar` or `fa` set means looking at the
+widget in that language: anything that says "next" or "back" with an arrow or its place (`›`, a bar that fills from
+the left) should follow. `lang()` tells which language it is.

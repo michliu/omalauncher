@@ -38,8 +38,8 @@ android {
         applicationId = "dev.omalauncher"
         minSdk = 29
         targetSdk = 37
-        versionCode = 47
-        versionName = "1.11.0"
+        versionCode = 48
+        versionName = "1.12.0"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -101,7 +101,11 @@ android {
 }
 
 // ExamplesTest reads the widget examples and the README from here, so editing them reruns it.
-tasks.withType<Test>().configureEach { inputs.dir("src/main/assets/widgets") }
+tasks.withType<Test>().configureEach {
+    inputs.dir("src/main/assets/widgets")
+    // The native tests build these for the machine they run on (HostNative).
+    inputs.dir("src/main/cpp")
+}
 
 // Gitignored, built by scripts/fetch-proot.sh. Without it a release still builds, but every Linux command fails.
 tasks.matching { it.name.matches(Regex("pre\\w*ReleaseBuild")) }.configureEach {
@@ -125,6 +129,20 @@ tasks.matching { it.name.matches(Regex("pre\\w*(Debug|Release)Build")) }.configu
         val now = digest.digest().joinToString("") { "%02x".format(it) }
         val built = File(libs, ".source").takeIf { it.isFile }?.readText()?.trim()
         check(built == now) { "$libs was built from an older patches/proot or scripts/fetch-proot.sh; run scripts/fetch-proot.sh" }
+    }
+}
+
+// libghostty-vt, the built-in terminal's engine, built by scripts/fetch-ghostty-vt.sh into the gitignored
+// src/main/cpp/ghostty-vt. Without it the app builds without the built-in terminal; built by an older script (another
+// ghostty or Zig), it would build an app with an engine the code may not fit.
+tasks.matching { it.name.matches(Regex("pre\\w*(Debug|Release)Build")) }.configureEach {
+    val vt = file("src/main/cpp/ghostty-vt")
+    val script = rootProject.file("scripts/fetch-ghostty-vt.sh")
+    inputs.file(script)
+    doFirst {
+        val built = File(vt, ".source").takeIf { it.isFile }?.readText()?.trim() ?: return@doFirst
+        val now = MessageDigest.getInstance("SHA-256").digest(script.readBytes()).joinToString("") { "%02x".format(it) }
+        check(built == now) { "$vt was built by an older scripts/fetch-ghostty-vt.sh; run it again" }
     }
 }
 
