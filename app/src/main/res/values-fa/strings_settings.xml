@@ -13,6 +13,7 @@
     <string name="settings_gestures">اشاره‌ها</string>
     <!-- What swiping up and down on home open: a panel's name, or nothing. -->
     <string name="settings_gestures_subtitle">بالا: ⁨%1$s⁩ · پایین: ⁨%2$s⁩</string>
+    <string name="settings_gestures_subtitle_double_tap">" · دو بار ضربه زدن: ⁨%1$s⁩"</string>
     <string name="settings_language">زبان</string>
     <!-- Following the language the phone is set to, rather than one picked here. -->
     <string name="settings_language_phone">زبان تلفن</string>

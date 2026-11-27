@@ -29,6 +29,7 @@
     <string name="style_hidden">پنهان</string>
     <string name="style_empty_page_left">صفحه خالی چپ</string>
     <string name="style_empty_page_right">صفحه خالی راست</string>
+    <string name="style_empty_page_hint">یادداشت صفحه خالی</string>
     <string name="style_columns">ستون‌ها</string>
     <!-- Whether home is one page, or as many as its apps take. -->
     <string name="style_pages">صفحه‌ها</string>
@@ -166,6 +167,14 @@
     <string name="gestures_title">اشاره‌ها</string>
     <string name="gestures_swipe_up">تند کشیدن به بالا</string>
     <string name="gestures_swipe_down">تند کشیدن به پایین</string>
+    <string name="gestures_double_tap">دو بار ضربه زدن</string>
+    <string name="gestures_action_notifications">اعلان‌ها</string>
+    <string name="gestures_action_settings">تنظیمات</string>
+    <string name="gestures_action_style">ظاهر</string>
+    <string name="gestures_action_store">فروشگاه ابزارک</string>
+    <string name="gestures_action_agents">عامل‌های برنامه‌نویسی</string>
+    <string name="gestures_action_terminal">ترمینال</string>
+    <string name="gestures_action_lock">قفل صفحه</string>
     <!-- What a swipe opens when it opens no panel. -->
     <string name="gestures_nothing">هیچ‌چیز</string>
     <!-- %1$s is a panel's name. -->

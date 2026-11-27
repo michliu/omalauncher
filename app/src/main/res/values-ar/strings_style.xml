@@ -29,6 +29,7 @@
     <string name="style_hidden">إخفاء</string>
     <string name="style_empty_page_left">صفحة فارغة يسارا</string>
     <string name="style_empty_page_right">صفحة فارغة يمينا</string>
+    <string name="style_empty_page_hint">ملاحظة الصفحة الفارغة</string>
     <string name="style_columns">الأعمدة</string>
     <!-- Whether home is one page, or as many as its apps take. -->
     <string name="style_pages">الصفحات</string>
@@ -174,6 +175,14 @@
     <string name="gestures_title">الإيماءات</string>
     <string name="gestures_swipe_up">السحب للأعلى</string>
     <string name="gestures_swipe_down">السحب للأسفل</string>
+    <string name="gestures_double_tap">النقر مرتين</string>
+    <string name="gestures_action_notifications">الإشعارات</string>
+    <string name="gestures_action_settings">الإعدادات</string>
+    <string name="gestures_action_style">المظهر</string>
+    <string name="gestures_action_store">متجر الأدوات</string>
+    <string name="gestures_action_agents">وكلاء البرمجة</string>
+    <string name="gestures_action_terminal">الطرفية</string>
+    <string name="gestures_action_lock">قفل الشاشة</string>
     <!-- What a swipe opens when it opens no panel. -->
     <string name="gestures_nothing">لا شيء</string>
     <!-- %1$s is a panel's name. -->

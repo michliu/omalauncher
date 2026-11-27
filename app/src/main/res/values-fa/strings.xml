@@ -12,4 +12,5 @@
     <string name="activity_settings">تنظیمات</string>
     <!-- In Android's notification access settings. -->
     <string name="notification_listener">ابزارک‌های Omalauncher</string>
+    <string name="lock_service_description">قفل صفحه هنگام استفاده از ژست قفل صفحه در صفحه اصلی. Omalauncher از طریق این سرویس چیزی نمی‌خواند.</string>
 </resources>
